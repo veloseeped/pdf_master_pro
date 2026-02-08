@@ -1,7 +1,7 @@
 import pytest
 import os
 from utils.parser import parse_to_blocks, clean_path
-from core.io_handler import sanitize_filename, get_unique_path
+from core.io_handler import get_safe_unique_path
 
 def test_parse_to_blocks_valid():
     """Проверка корректного парсинга диапазонов и одиночных страниц."""
@@ -18,20 +18,49 @@ def test_parse_to_blocks_invalid():
     assert parse_to_blocks("abc", 10) is None 
     assert parse_to_blocks("15-20", 10) is None 
 
-def test_sanitize_filename():
-    """Проверка очистки имен файлов от запрещенных символов."""
-    assert sanitize_filename('test/file?*.pdf') == "testfile.pdf" 
-    assert sanitize_filename('   ') == "File_1.pdf" 
-def test_get_unique_path(tmp_path):
-    """Проверка генерации уникального имени при конфликте файлов."""
+
+def test_get_safe_unique_path_complex(tmp_path):
+    """
+    Комплексная проверка: очистка запрещенных символов + 
+    обработка конфликта имен (генерация индекса).
+    """
+    import os
+    from core.io_handler import get_safe_unique_path
+    
     d = tmp_path / "test_dir"
     d.mkdir()
-    f = d / "doc.pdf"
-    f.write_text("content")
     
-    # Файл doc.pdf существует, ожидаем doc_1.pdf
-    unique = get_unique_path(str(d), "doc.pdf")
-    assert unique.endswith("doc_1.pdf")
+    # 1. Создаем файл с "чистым" именем, которое мы ожидаем после обработки
+    # 'report?.pdf' -> после очистки 'report.pdf'
+    existing_file = d / "report.pdf"
+    existing_file.write_text("content")
+    
+    # 2. Вызываем функцию с "грязным" именем
+    # Ожидаем: 'report?.pdf' -> 'report.pdf' (конфликт) -> 'report_1.pdf'
+    result_path = get_safe_unique_path(str(d), "report?.pdf")
+    
+    filename = os.path.basename(result_path)
+    
+    # ПРОВЕРКИ:
+    # Символ '?' должен быть удален
+    assert "?" not in filename 
+    # Так как report.pdf уже есть, должен появиться индекс _1
+    assert filename == "report_1.pdf" 
+    # Путь должен остаться в целевой директории
+    assert os.path.dirname(result_path) == str(d) 
+
+def test_get_safe_unique_path_empty_input(tmp_path):
+    """Проверка обработки пустого или некорректного ввода."""
+    from core.io_handler import get_safe_unique_path
+    import os
+    
+    # Ввод, состоящий только из запрещенных символов
+    result_path = get_safe_unique_path(str(tmp_path), "??//??")
+    filename = os.path.basename(result_path)
+    
+    # Должно вернуться дефолтное имя с расширением .pdf
+    assert "File_unnamed" in filename 
+    assert filename.endswith(".pdf") 
 
 def test_parse_to_blocks_edge_cases():
     max_p = 10

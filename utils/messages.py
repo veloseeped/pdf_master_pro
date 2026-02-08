@@ -14,9 +14,10 @@ MESSAGES = {
         "label_file_prefix": "Файл",
         
         # Вкладки
-        "tab_extractor": "Экстрактор блоков",
+        "tab_extractor": "Извлечь страницы",
         "tab_merge": "Склеить PDF",
-        "tab_editor": "Порядок страниц",
+        "tab_editor": "Изменить порядок страниц",
+        "tab_transform": "Повернуть или отразить",
         
         # Склейка и Редактор
         "label_file_list": "Список файлов:",
@@ -64,7 +65,8 @@ MESSAGES = {
         # Tabs
         "tab_extractor": "Block Extractor",
         "tab_merge": "Merge PDF",
-        "tab_editor": "Page Order",
+        "tab_editor": "Change Page Order",
+        "tab_transform": "Rotate or Mirror",
         
         # Merge & Editor
         "label_file_list": "File List:",

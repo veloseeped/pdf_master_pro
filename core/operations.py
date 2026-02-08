@@ -1,6 +1,6 @@
 import os
-from pypdf import PdfWriter
-from core.io_handler import save_pdf, get_unique_path, sanitize_filename 
+from pypdf import PdfWriter, Transformation
+from core.io_handler import save_pdf, get_safe_unique_path 
 from utils.messages import get_msg
 from utils.parser import parse_to_blocks
 
@@ -22,8 +22,8 @@ def extract_logic(reader, out_path, query, progress_cb):
                 writer.add_page(reader.pages[p_idx])
 
             # Очищаем имя от "мусора"
-            clean_name = sanitize_filename(custom_name, i)
-            final_path = get_unique_path(out_path, clean_name)
+            
+            final_path = get_safe_unique_path(out_path, custom_name)
             save_pdf(writer, final_path)
             successful_files += 1
             progress_cb(i + 1)
@@ -45,8 +45,8 @@ def merge_logic(files, out_path, progress_cb):
                 merger.append(fh)
                 progress_cb(i + 1)
         directory, filename = os.path.split(out_path)
-        clear_out_path = get_unique_path(directory, sanitize_filename(filename))
-        save_pdf(merger, clear_out_path)
+        final_path = get_safe_unique_path(directory, filename)
+        save_pdf(merger, final_path)
     finally:
         merger.close()
 
@@ -79,5 +79,43 @@ def editor_logic(reader, out_path, query, progress_cb):
     for i, p_idx in enumerate(final_indices):
         writer.add_page(reader.pages[p_idx])
         progress_cb(i + 1)
+    directory, filename = os.path.split(out_path)
+    final_path = get_safe_unique_path(directory, filename) 
+    save_pdf(writer, final_path)
 
-    save_pdf(writer, out_path)
+
+def rotate_mirror_logic(reader, out_path, query, action_type, value, progress_cb):
+    """
+    Трансформация страниц: поворот (rotate) или отражение (mirror).
+    action_type: 'rotate' или 'mirror'
+    value: градусы (90, 180, 270) или направление ('h', 'v')
+    """
+    total_pages = len(reader.pages)
+    raw_indices = parse_to_blocks(query, total_pages)
+    if not raw_indices:
+        return
+    
+    target_indices = set(p for sublist in raw_indices for p in sublist)
+    writer = PdfWriter()
+    
+    for i in range(total_pages):
+        page = reader.pages[i]
+        if i in target_indices:
+            if action_type == 'rotate':
+                page.rotate(int(value))
+            elif action_type == 'mirror':
+                # Получаем размеры страницы для корректного смещения после отражения
+                mb = page.mediabox
+                if value == 'h':
+                    # Отражение по горизонтали: масштабируем X на -1 и сдвигаем вправо на ширину
+                    op = Transformation().scale(-1, 1).translate(mb.width, 0)
+                else:
+                    # Отражение по вертикали: масштабируем Y на -1 и сдвигаем вверх на высоту
+                    op = Transformation().scale(1, -1).translate(0, mb.height)
+                page.add_transformation(op)
+        
+        writer.add_page(page)
+        progress_cb(i + 1)
+    directory, filename = os.path.split(out_path)
+    final_path = get_safe_unique_path(directory, filename)     
+    save_pdf(writer, final_path)

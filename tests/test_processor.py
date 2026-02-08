@@ -80,3 +80,21 @@ def test_process_reverse_single_page(mock_open, mock_val, mock_logic, mock_reade
 
     # Для одной страницы запрос должен быть "1-1" 
     mock_logic.assert_called_once_with(ANY, "out.pdf", "1", ANY)
+
+@patch('core.processor.get_reader')
+@patch('core.processor.rotate_mirror_logic')
+@patch('core.processor.validate_file_exists')
+@patch('core.processor.open', create=True)
+def test_process_transform_flow(mock_open, mock_val, mock_logic, mock_reader):
+    """Проверка цепочки вызовов трансформации в процессоре."""
+    mock_app = MagicMock()
+    processor = PdfProcessor(mock_app)
+    
+    processor.process_transform("in.pdf", "out.pdf", "1-3", "rotate", "180")
+    
+    time.sleep(0.1) # Ожидание выполнения потока [cite: 44]
+    
+    mock_val.assert_called_once_with("in.pdf")
+    mock_logic.assert_called_once_with(ANY, "out.pdf", "1-3", "rotate", "180", ANY)
+    # Проверка уведомления об успехе [cite: 34]
+    mock_app.safe_message.assert_called_with("info", "Готово", "Файл успешно трансформирован.")

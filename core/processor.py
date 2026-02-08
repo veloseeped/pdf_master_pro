@@ -1,5 +1,5 @@
 from core.validator import validate_file_exists
-from core.operations import extract_logic, merge_logic, editor_logic
+from core.operations import extract_logic, merge_logic, editor_logic, rotate_mirror_logic
 from core.task_manager import run_in_thread
 from core.io_handler import get_reader
 from utils.constants import MSG_SUCCESS_TITLE
@@ -74,3 +74,13 @@ class PdfProcessor:
                 editor_logic(reader, o, query, lambda v: self.app.update_progress(v, None))
         
         self._execute_safe(task, "Файл успешно реверсирован.", src, out_path)
+
+    def process_transform(self, src, out_path, query, action_type, value):
+        def task(s, o, q, at, v):
+            validate_file_exists(s)
+            with open(s, "rb") as f_stream:
+                reader = get_reader(f_stream)
+                self.app.update_progress(0, len(reader.pages))
+                rotate_mirror_logic(reader, o, q, at, v, self.app.update_progress)
+            
+        self._execute_safe(task, "Файл успешно трансформирован.", src, out_path, query, action_type, value)

@@ -18,7 +18,7 @@ class ExtractorTab(BasePdfTab):
 
     def _setup_ui(self):
         # Секция настроек путей
-        top = tk.LabelFrame(self, text=f" {get_msg('label_source_pdf')} ", padx=FRAME_PADDING, pady=FRAME_PADDING)
+        top = tk.LabelFrame(self, text=f" {get_msg('label_file_prefix')} ", padx=FRAME_PADDING, pady=FRAME_PADDING)
         top.pack(fill="x", padx=15, pady=10)
         
         self._create_path_row(top, "label_source_pdf", self.ext_source, "file")
@@ -26,6 +26,18 @@ class ExtractorTab(BasePdfTab):
 
         tk.Label(self, text=get_msg("label_block_composition")).pack(anchor="w", padx=TAB_PADDING)
         
+        # --- Шапка таблицы ---
+        header_row = tk.Frame(self)
+        header_row.pack(fill="x", padx=TAB_PADDING, pady=(5, 0))
+        
+        # Отступ под индекс строки (выравнивание с Label "1:") 
+        tk.Label(header_row, text="", width=4).pack(side="left") 
+        
+        # Заголовки (ширина подобрана под размеры Entry и Checkbutton) 
+        tk.Label(header_row, text="Страницы", width=15, font=FONT_SMALL_BOLD, anchor="w").pack(side="left", padx=2)
+        tk.Label(header_row, text="Исключить", width=12, font=FONT_SMALL_BOLD, anchor="w").pack(side="left")
+        tk.Label(header_row, text="Имя файла", font=FONT_SMALL_BOLD, anchor="w").pack(side="left", padx=5)
+        # ---------------------
         # Контейнер для списка блоков со скроллом
         list_container = tk.Frame(self)
         list_container.pack(fill="both", expand=True, padx=TAB_PADDING, pady=5)
@@ -67,8 +79,8 @@ class ExtractorTab(BasePdfTab):
 
         # Переключатель режима: False = Извлечь, True = Исключить
         exclude_var = tk.BooleanVar(value=False)
-        cb = tk.Checkbutton(row, text="Исключить", variable=exclude_var)
-        cb.pack(side="left", padx=5)
+        cb = tk.Checkbutton(row, variable=exclude_var)
+        cb.pack(side="left", padx=(42, 42))
         cb.exclude_var = exclude_var # Сохраняем ссылку в объекте строки
 
         ent_name = tk.Entry(row)

@@ -1,6 +1,6 @@
 import os
 import pytest
-from core.io_handler import get_reader, get_unique_path
+from core.io_handler import get_reader, save_pdf, get_safe_unique_path
 from unittest.mock import MagicMock, patch
 from utils.constants import ERR_ENCRYPTED
 
@@ -48,12 +48,39 @@ def test_get_unique_path_collision(tmp_path):
     with open(full_path_0, "w") as f: f.write("content")
     
     # 1-е столкновение: ожидаем report_1.pdf
-    path_1 = get_unique_path(directory, filename)
+    path_1 = get_safe_unique_path(directory, filename)
     assert os.path.basename(path_1) == "report_1.pdf"
     
     # Создаем второй файл
     with open(path_1, "w") as f: f.write("content")
     
     # 2-е столкновение: ожидаем report_2.pdf
-    path_2 = get_unique_path(directory, filename)
+    path_2 = get_safe_unique_path(directory, filename)
     assert os.path.basename(path_2) == "report_2.pdf"
+
+
+def test_save_pdf_no_directory_path(tmp_path):
+    """
+    Проверка сохранения файла, когда путь не содержит папок (текущая директория).
+    Это предотвращает WinError 3 при пустом os.path.dirname.
+    """
+    mock_writer = MagicMock()
+    # Имя файла без указания папки
+    filename = "local_result.pdf"
+    
+    # Используем patch, чтобы подменить open и предотвратить реальную запись на диск,
+    # но проверяем, что os.makedirs не вызывается с пустой строкой.
+    with patch("os.makedirs") as mock_makedirs, \
+         patch("builtins.open", MagicMock()) as mock_open:
+        
+        save_pdf(mock_writer, filename)
+        
+        # Проверяем, что makedirs не вызывался для пустой строки
+        # (или вообще не вызывался, если путь плоский)
+        for call in mock_makedirs.call_args_list:
+            assert call[0][0] != ""
+        
+        # Проверяем, что файл все равно попытались открыть для записи
+        mock_open.assert_called_once_with(filename, "wb")
+        # И writer был закрыт 
+        mock_writer.close.assert_called_once()

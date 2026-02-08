@@ -4,7 +4,7 @@ from tkinterdnd2 import TkinterDnD
 from ui.extractor_tab import ExtractorTab
 from ui.merge_tab import MergeTab
 from ui.editor_tab import EditorTab
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, ANY
 
 @pytest.fixture(scope="module")
 def root():
@@ -119,3 +119,71 @@ def test_ui_unique_default_names_for_multiple_blocks(root):
     name_entry_2 = tab.block_entries[1].winfo_children()[3]
     assert "part_1" in name_entry_1.get()
     assert "part_2" in name_entry_2.get()
+
+def test_transform_tab_data_collection(root):
+    """Проверка сбора параметров трансформации из UI."""
+    from ui.transform_tab import TransformTab
+    mock_processor = MagicMock()
+    tab = TransformTab(root, mock_processor)
+    
+    tab.src.set("input.pdf")
+    tab.out.set("output.pdf")
+    tab.pages.set("5-10")
+    tab.action.set("rotate")
+    target_key = "270 градусов"
+    tab.rot_val.set(target_key)
+    
+    tab._run()
+    
+    # Убеждаемся, что данные из StringVar корректно переданы в процессор
+    expected_flag = tab.ROT_MAP[target_key]
+    mock_processor.process_transform.assert_called_once_with(
+        "input.pdf", "output.pdf", "5-10", "rotate", expected_flag
+    )
+
+def test_transform_tab_validation(root):
+    """Проверка блокировки запуска при пустых полях."""
+    from ui.transform_tab import TransformTab
+    mock_processor = MagicMock()
+    tab = TransformTab(root, mock_processor)
+    
+    # Оставляем поле страниц пустым
+    tab.src.set("in.pdf")
+    tab.out.set("out.pdf")
+    tab.pages.set("")
+    
+    tab._run()
+    
+    # Процессор не должен вызываться [cite: 79]
+    mock_processor.process_transform.assert_not_called()
+    # Должно появиться предупреждение о заполнении всех путей [cite: 93]
+    tab.processor.app.safe_message.assert_called_with("warning", "Внимание", ANY)
+
+def test_editor_tab_and_transform_overlap_naming(root):
+    """Проверка, что UI передает базовые имена, полагаясь на уникальность в ядре[cite: 73, 75]."""
+    mock_processor = MagicMock()
+    from ui.editor_tab import EditorTab
+    from ui.transform_tab import TransformTab
+    
+    ed_tab = EditorTab(root, mock_processor)
+    tr_tab = TransformTab(root, mock_processor)
+    
+    # Настраиваем одинаковые выходные пути
+    shared_path = "C:/output/result.pdf"
+    
+    # 1. Запуск из редактора
+    ed_tab.ed_source.set("source1.pdf")
+    ed_tab.ed_out.set(shared_path)
+    ed_tab.ed_pages.set("1")
+    ed_tab._run_editor()
+    
+    # 2. Запуск из трансформации
+    tr_tab.src.set("source2.pdf")
+    tr_tab.out.set(shared_path)
+    tr_tab.pages.set("1")
+    tr_tab._run()
+    
+    # Проверяем, что оба вызова дошли до процессора с оригинальным путем [cite: 35, 42, 44]
+    # Ядро само разберется с индексами _1, _2 и т.д. [cite: 22, 31, 34]
+    mock_processor.process_editor.assert_called_with("source1.pdf", shared_path, "1")
+    mock_processor.process_transform.assert_called_with("source2.pdf", shared_path, "1", ANY, ANY)
