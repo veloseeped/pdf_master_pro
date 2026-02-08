@@ -1,0 +1,1484 @@
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\main.py 
+################################################################################ 
+ 
+from tkinterdnd2 import TkinterDnD
+from ui.tkinter_gui import PdfProApp
+
+if __name__ == "__main__":
+    # Инициализация корня с поддержкой Drag-and-Drop
+    root = TkinterDnD.Tk()
+    app = PdfProApp(root)
+    root.mainloop() 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\project_code.txt 
+################################################################################ 
+ 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\main.py 
+################################################################################ 
+ 
+from tkinterdnd2 import TkinterDnD
+from ui.tkinter_gui import PdfProApp
+
+if __name__ == "__main__":
+    # Инициализация корня с поддержкой Drag-and-Drop
+    root = TkinterDnD.Tk()
+    app = PdfProApp(root)
+    root.mainloop() 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\project_code.txt 
+################################################################################ 
+ 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\main.py 
+################################################################################ 
+ 
+from tkinterdnd2 import TkinterDnD
+from ui.tkinter_gui import PdfProApp
+
+if __name__ ==  
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\requirement.txt 
+################################################################################ 
+ 
+pypdf>=3.0.0
+tkinterdnd2>=0.3.0
+pytest 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\core\io_handler.py 
+################################################################################ 
+ 
+import os
+import re
+from pypdf import PdfReader
+from utils.constants import ERR_ENCRYPTED
+
+def sanitize_filename(filename, i=0):
+    """Удаляет запрещенные символы из имени файла."""
+    # Оставляем буквы, цифры, пробелы, точки, тире и подчеркивания
+    filename = re.sub(r'[\\/*?:"<>|]', "", filename)
+    if not filename.strip(): # Если имя стало пустым после очистки
+        filename = f"File_{i+1}"           
+    if not filename.lower().endswith(".pdf"):
+        filename += ".pdf"
+    return filename.strip()
+
+
+def get_unique_path(directory, filename):
+    """
+    Проверяет, существует ли файл. Если да, добавляет индекс в конец имени.
+    Пример: 'document.pdf' -> 'document_(1).pdf'
+    """
+    base, ext = os.path.splitext(filename)
+    final_path = os.path.join(directory, filename)
+    counter = 1
+    
+    while os.path.exists(final_path):
+        final_path = os.path.join(directory, f"{base}_{counter}{ext}")
+        counter += 1
+    return final_path
+
+
+def get_reader(path):
+    """Возвращает PdfReader или выбрасывает ValueError, если файл защищен."""
+    if not path:
+        raise ValueError("Путь к файлу не указан")
+    try:
+        reader = PdfReader(path, strict=False)
+        if reader.is_encrypted:
+            # Пытаемся открыть с пустым паролем
+            if reader.decrypt("") == 0:
+                raise ValueError(ERR_ENCRYPTED)
+        return reader
+    except Exception as e:
+        raise ValueError(f"Ошибка доступа к PDF: {str(e)}")
+
+
+def save_pdf(writer, clear_output_path):
+    os.makedirs(os.path.dirname(clear_output_path), exist_ok=True)
+    with open(clear_output_path, "wb") as f_out:
+        writer.write(f_out)
+    writer.close() 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\core\operations.py 
+################################################################################ 
+ 
+import os
+from pypdf import PdfWriter
+from core.io_handler import save_pdf, get_unique_path, sanitize_filename 
+from utils.messages import get_msg
+from utils.parser import parse_to_blocks
+
+
+def extract_logic(reader, out_path, query, progress_cb):
+    try:
+        total_pages = len(reader.pages)
+        successful_files = 0
+
+        # Распаковываем кортеж (конфигурация страниц, желаемое имя)
+        for i, (config_str, custom_name) in enumerate(query):
+            raw_indices = parse_to_blocks(config_str, total_pages)
+            if not raw_indices: 
+                continue
+            writer = PdfWriter()
+            final_indices = [p for sublist in raw_indices for p in sublist]
+
+            for p_idx in final_indices:
+                writer.add_page(reader.pages[p_idx])
+
+            # Очищаем имя от "мусора"
+            clean_name = sanitize_filename(custom_name, i)
+            out_path = get_unique_path(out_path, clean_name)
+            save_pdf(writer, out_path)
+            successful_files += 1
+            progress_cb(i + 1)
+            writer.close()
+        
+        if successful_files == 0:
+            raise ValueError(get_msg("err_no_pages_extracted"))
+    finally:
+    # Освобождаем дескриптор файла
+        if hasattr(reader, "stream") and reader.stream:
+            reader.stream.close()        
+
+
+def merge_logic(files, out_path, progress_cb):
+    merger = PdfWriter()
+    try:
+        for i, f in enumerate(files):
+            with open(f, "rb") as fh:
+                merger.append(fh)
+                progress_cb(i + 1)
+        directory, filename = os.path.split(out_path)
+        clear_out_path = get_unique_path(directory, sanitize_filename(filename))
+        save_pdf(merger, clear_out_path)
+    finally:
+        merger.close()
+
+
+def editor_logic(reader, out_path, query, progress_cb):
+    total_pages = len(reader.pages)
+
+    raw_indices = parse_to_blocks(query, total_pages)
+    if not raw_indices:
+        return  
+    writer = PdfWriter()
+    # Определяем уже указанные пользователем страницы (0-indexed)
+    final_indices = [p for block in raw_indices for p in block]
+    
+    # Находим отсутствующие страницы для автозаполнения
+    all_indices = set(range(total_pages))
+    used_indices = set(final_indices)
+    remaining_indices = sorted(list(all_indices - used_indices))
+    
+    # Формируем итоговый список индексов: сначала ввод пользователя, затем остаток
+    final_indices = final_indices + remaining_indices
+    
+    if not final_indices:
+        raise ValueError(get_msg("err_page_numbers"))
+
+    # Превращаем плоский список индексов обратно в формат блоков для extract_logic
+    # Оборачиваем в список, так как extract_logic ожидает итератор кортежей (config, name)
+    # Используем фиктивную конфигурацию, так как мы уже подготовили индексы
+  
+    for i, p_idx in enumerate(final_indices):
+        writer.add_page(reader.pages[p_idx])
+        progress_cb(i + 1)
+
+    save_pdf(writer, out_path)
+ 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\core\processor.py 
+################################################################################ 
+ 
+from core.validator import validate_file_exists
+from core.operations import extract_logic, merge_logic, editor_logic
+from core.task_manager import run_in_thread
+from core.io_handler import get_reader
+from utils.constants import MSG_SUCCESS_TITLE
+from utils.messages import get_msg
+
+class PdfProcessor:
+    def __init__(self, app):
+        self.app = app
+
+    def _execute_safe(self, task_func, success_msg_key, *args):
+        """
+        Универсальная обертка для выполнения бизнес-логики в потоке.
+        Обеспечивает валидацию, обработку ошибок и сброс прогресс-бара.
+        """
+        def worker():
+            try:
+                # Включаем индикатор ожидания (0/100), если максимум не задан явно
+                self.app.root.after(0, lambda: self.app.update_progress(0, 100))
+                
+                # Выполнение основной логики
+                task_func(*args)
+                
+                # Уведомление об успехе
+                self.app.safe_message("info", MSG_SUCCESS_TITLE, success_msg_key)
+            except Exception as e:
+                self.app.safe_message("error", "Ошибка", str(e))
+            finally:
+                # Гарантированный сброс прогресса 
+                self.app.update_progress(0)
+                
+        run_in_thread(worker, ())
+
+    def process_extraction(self, src, dest, configs):
+        def task(s, d, c):
+            validate_file_exists(s)
+            self.app.update_progress(0, len(c))
+            with open(s, "rb") as f_stream:
+                reader = get_reader(f_stream)
+                extract_logic(reader, d, c, self.app.update_progress)
+            
+        self._execute_safe(task, f"Создано файлов: {len(configs)}", src, dest, configs)
+
+    def process_merge(self, src, out_path):
+        def task(f_list, out):
+            if not f_list or len(f_list) < 2:
+                raise ValueError(get_msg("err_merge_required"))
+            for f in f_list: 
+                validate_file_exists(f)
+            self.app.update_progress(0, len(f_list))
+            merge_logic(f_list, out, self.app.update_progress)
+            
+        self._execute_safe(task, "Файлы успешно склеены.", src, out_path)
+
+    def process_editor(self, src, out_path, query):
+        def task(s, o, q):
+            validate_file_exists(s)
+            with open(s, "rb") as f_stream:
+                reader = get_reader(f_stream)
+                editor_logic(reader, o, q, lambda v: self.app.update_progress(v, None))
+            
+        self._execute_safe(task, "Новый файл успешно создан.", src, out_path, query)
+
+    def process_reverse(self, src, out_path):
+        """Создает PDF с полностью обратным порядком страниц."""
+        def task(s, o):
+            validate_file_exists(s)
+            with open(s, "rb") as f_stream:
+                reader = get_reader(f_stream)
+                total_pages = len(reader.pages)
+                query = f"{total_pages}-1"
+                # Используем существующую логику редактора для применения реверса
+                editor_logic(reader, o, query, lambda v: self.app.update_progress(v, None))
+        
+        self._execute_safe(task, "Файл успешно реверсирован.", src, out_path)
+ 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\core\task_manager.py 
+################################################################################ 
+ 
+import threading
+
+def run_in_thread(target, args):
+    thread = threading.Thread(target=target, args=args, daemon=True)
+    thread.start() 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\core\validator.py 
+################################################################################ 
+ 
+import os
+from utils.constants import ERR_FILE_NOT_FOUND
+
+def validate_file_exists(path):
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"{ERR_FILE_NOT_FOUND}: {path}")
+    return True 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\tests\test_concurrency.py 
+################################################################################ 
+ 
+import pytest
+import threading
+import time
+import tkinter as tk
+from tkinterdnd2 import TkinterDnD
+from unittest.mock import MagicMock, patch
+from ui.tkinter_gui import PdfProApp
+from core.task_manager import run_in_thread
+from core.processor import PdfProcessor
+
+def test_run_in_thread_execution():
+    """Проверка, что run_in_thread действительно запускает функцию в отдельном потоке[cite: 25]."""
+    execution_flag = threading.Event()
+    
+    def target():
+        execution_flag.set()
+        
+    run_in_thread(target, ())
+    
+    # Ожидаем выполнения потока (timeout чтобы тест не завис)
+    assert execution_flag.wait(timeout=1.0) is True
+
+def test_execute_safe_success_flow():
+    """Проверка цепочки _execute_safe: выполнение -> уведомление об успехе[cite: 16, 18]."""
+    mock_app = MagicMock()
+    processor = PdfProcessor(mock_app)
+    
+    task_func = MagicMock()
+    
+    # Запускаем обертку. Она вызывает run_in_thread внутри.
+    processor._execute_safe(task_func, "success_key")
+    
+    # Даем небольшую паузу для отработки потока
+    time.sleep(0.1)
+    
+    # Проверяем, что основная логика была вызвана [cite: 18]
+    task_func.assert_called_once()
+    # Проверяем, что вызвано сообщение об успехе через безопасный метод [cite: 18]
+    mock_app.safe_message.assert_called_with("info", "Готово", "success_key")
+
+def test_execute_safe_error_handling():
+    """Проверка перехвата исключений в потоке и вывода ошибки в UI."""
+    mock_app = MagicMock()
+    processor = PdfProcessor(mock_app)
+    
+    def failing_task():
+        raise ValueError("Critical failure")
+    
+    processor._execute_safe(failing_task, "success_key")
+    
+    time.sleep(0.1)
+    
+    # Проверяем, что ошибка была поймана и передана в safe_message 
+    mock_app.safe_message.assert_called_with("error", "Ошибка", "Critical failure")
+    # Проверяем, что прогресс-бар сброшен в блоке finally 
+    mock_app.update_progress.assert_any_call(0)
+
+
+@patch('tkinter.messagebox.showinfo')
+def test_safe_message_integration(mock_showinfo):
+    """Проверка, что safe_message использует root.after для работы с Tkinter[cite: 77]."""
+    
+    # Используем TkinterDnD.Tk вместо tk.Tk, чтобы избежать TclError 
+    root = TkinterDnD.Tk()
+    root.withdraw() # Скрываем окно 
+    
+    try:
+        # Инициализация приложения теперь пройдет успешно, так как DnD команды доступны 
+        app = PdfProApp(root)
+        
+        # Перехватываем метод after у существующего объекта
+        with patch.object(root, 'after') as mock_after:
+            app.safe_message("info", "Title", "Message")
+            
+            # Убеждаемся, что вызов запланирован через after(0, ...) [cite: 77]
+            mock_after.assert_called_once()
+            
+            # Извлекаем и выполняем лямбду, которую передали в after
+            callback = mock_after.call_args[0][1]
+            callback()
+            
+            # Проверяем финальный вызов окна сообщения
+            mock_showinfo.assert_called_with("Title", "Message")
+    finally:
+        root.destroy() # Обязательная очистка ресурсов 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\tests\test_core.py 
+################################################################################ 
+ 
+import pytest
+from unittest.mock import MagicMock, patch
+from core.operations import extract_logic, merge_logic
+
+@pytest.fixture
+def mock_reader():
+    """Создает фиктивный объект PDF Reader с 10 страницами."""
+    reader = MagicMock()
+    reader.pages = [MagicMock() for _ in range(10)]
+    return reader
+
+@patch('core.operations.PdfWriter')
+@patch('core.operations.save_pdf')
+def test_extract_logic_calls(mock_save, mock_writer_cls, mock_reader):
+    """Проверка, что логика извлечения вызывает методы записи нужных страниц."""
+    mock_writer = mock_writer_cls.return_value
+    query = [("1-2", "part1.pdf")]
+    
+    extract_logic(mock_reader, "/fake/path", query, lambda x: None)
+    
+    # Проверяем, что добавлены страницы с индексами 0 и 1
+    assert mock_writer.add_page.call_count == 2 
+    mock_save.assert_called_once() 
+
+@patch('core.operations.PdfWriter')
+@patch('core.operations.save_pdf')
+@patch('core.operations.open', create=True)
+def test_merge_logic_calls(mock_open, mock_save, mock_writer_cls):
+    """Проверка корректности объединения нескольких файлов."""
+    mock_writer = mock_writer_cls.return_value
+    files = ["f1.pdf", "f2.pdf"]
+    
+    merge_logic(files, "/out/merged.pdf", lambda x: None)
+    
+    # Проверяем, что метод append был вызван для каждого файла
+    assert mock_writer.append.call_count == 2 
+    mock_save.assert_called_once()  
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\tests\test_io.py 
+################################################################################ 
+ 
+import pytest
+from core.io_handler import get_reader
+from unittest.mock import MagicMock, patch
+from utils.constants import ERR_ENCRYPTED
+
+@patch('core.io_handler.PdfReader')
+def test_get_reader_encrypted(mock_reader_cls):
+    # Симуляция зашифрованного файла, который не открывается пустым паролем
+    mock_reader = mock_reader_cls.return_value
+    mock_reader.is_encrypted = True
+    mock_reader.decrypt.return_value = 0 # 0 значит неудача 
+    
+    with pytest.raises(ValueError, match=ERR_ENCRYPTED):
+        get_reader("dummy.pdf")
+
+def test_save_pdf_creates_dir(tmp_path):
+    from core.io_handler import save_pdf
+    mock_writer = MagicMock()
+    out_dir = tmp_path / "new_folder"
+    out_file = out_dir / "test.pdf"
+    
+    # Проверка, что save_pdf создает директории автоматически 
+    save_pdf(mock_writer, str(out_file))
+    assert out_dir.exists()
+
+def test_get_reader_invalid_file_content(tmp_path):
+    """Проверка ошибки при чтении файла с неверным форматом."""
+    fake_pdf = tmp_path / "not_a_pdf.pdf"
+    fake_pdf.write_text("This is plain text, not PDF binary data.")
+    
+    with pytest.raises(ValueError, match="Ошибка доступа к PDF"):
+        get_reader(str(fake_pdf))
+
+def test_get_reader_none_path():
+    """Проверка обработки отсутствующего пути[cite: 6]."""
+    with pytest.raises(ValueError, match="Путь к файлу не указан"):
+        get_reader(None)
+ 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\tests\test_processor.py 
+################################################################################ 
+ 
+import pytest
+import time
+from unittest.mock import MagicMock, patch, ANY
+from core.processor import PdfProcessor
+from utils.constants import ERR_MERGE_REQUIRED
+
+def test_process_merge_validation_error():
+    """Проверка, что мерж не запускается, если файлов меньше двух."""
+    mock_app = MagicMock()
+    processor = PdfProcessor(mock_app)
+    
+    # Пытаемся склеить только один файл
+    processor.process_merge(["file1.pdf"], "output.pdf")
+    
+    # Даем время отработать потоку
+    time.sleep(0.1)
+    
+    # Проверяем, что вызвана ошибка валидации, а не логика склейки
+    mock_app.safe_message.assert_called_with("error", "Ошибка", ANY)
+    # Проверяем, что сообщение содержит текст о необходимости минимум 2 файлов
+    args = mock_app.safe_message.call_args[0]
+    assert "минимум 2 файла" in str(args[2])
+
+@patch('core.processor.get_reader')
+@patch('core.processor.extract_logic')
+@patch('core.processor.validate_file_exists')
+@patch('core.processor.open', create=True)
+def test_process_extraction_flow(mock_open, mock_val, mock_logic, mock_reader, tmp_path):
+    """Проверка полной цепочки извлечения страниц."""
+    mock_app = MagicMock()
+    processor = PdfProcessor(mock_app)
+    
+    src = "input.pdf"
+    dest = str(tmp_path)
+    configs = [("1-2", "part1"), ("5", "part2")]
+    
+    processor.process_extraction(src, dest, configs)
+    
+    time.sleep(0.1)
+    
+    # Проверка вызовов
+    mock_val.assert_called_once_with(src)
+    mock_logic.assert_called_once()
+    mock_app.update_progress.assert_any_call(0, len(configs))
+
+@patch('core.processor.get_reader')
+@patch('core.processor.editor_logic')
+@patch('core.processor.validate_file_exists')
+@patch('core.processor.open', create=True)
+def test_process_reverse_flow(mock_open, mock_val, mock_logic, mock_reader):
+    """Проверка логики реверса страниц."""
+    mock_app = MagicMock()
+    processor = PdfProcessor(mock_app)
+    
+    # Имитируем PDF на 10 страниц
+    mock_reader.return_value.pages = [MagicMock() for _ in range(10)]
+    
+    processor.process_reverse("src.pdf", "out.pdf")
+    
+    time.sleep(0.1)
+    
+    # Проверяем, что вызван editor_logic с запросом "10-1"
+    mock_logic.assert_called_once_with(ANY, "out.pdf", "10-1", ANY)
+
+@patch('core.processor.get_reader')
+@patch('core.processor.editor_logic')
+@patch('core.processor.validate_file_exists')
+@patch('core.processor.open', create=True)
+def test_process_reverse_single_page(mock_open, mock_val, mock_logic, mock_reader):
+    """Проверка реверса для документа из одной страницы."""
+    mock_app = MagicMock()
+    processor = PdfProcessor(mock_app)
+    
+    # Имитируем PDF на 1 страницу 
+    mock_reader.return_value.pages = [MagicMock()]
+    
+    processor.process_reverse("one_page.pdf", "out.pdf")
+    
+    time.sleep(0.1)
+
+    # Для одной страницы запрос должен быть "1-1" 
+    mock_logic.assert_called_once_with(ANY, "out.pdf", "1-1", ANY) 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\tests\test_ui_logic.py 
+################################################################################ 
+ 
+import tkinter as tk
+from unittest.mock import MagicMock, patch
+from tkinterdnd2 import TkinterDnD
+from ui.extractor_tab import ExtractorTab
+from ui.merge_tab import MergeTab
+from ui.editor_tab import EditorTab
+
+
+def test_extractor_tab_data_collection():
+    """Проверка сбора конфигураций из динамических полей ввода."""
+    # Инициализация корня с поддержкой Drag-and-Drop для корректной работы виджетов 
+    root = TkinterDnD.Tk()
+    root.withdraw() # Скрываем окно при тестах
+    
+    try:
+        mock_processor = MagicMock()
+        
+        # Создаем вкладку экстрактора
+        tab = ExtractorTab(root, mock_processor)
+        
+        # 1. Добавляем второй блок (один создается автоматически при инициализации) 
+        tab.add_block_field()
+        
+        # 2. Эмулируем ввод пользователя в Entry виджеты 
+        # Структура строки: [Label, Entry(pages), Entry(name)]
+        row1_children = tab.block_entries[0].winfo_children()
+        row2_children = tab.block_entries[1].winfo_children()
+        
+        # Блок 1
+        row1_children[1].insert(0, "1-3") 
+        row1_children[2].delete(0, tk.END)
+        row1_children[2].insert(0, "first_part")
+        
+        # Блок 2
+        row2_children[1].insert(0, "5, 7")
+        row2_children[2].delete(0, tk.END)
+        row2_children[2].insert(0, "second_part")
+        
+        # 3. Устанавливаем пути [cite: 61]
+        tab.ext_source.set("source.pdf")
+        tab.ext_dest.set("/output/dir")
+        
+        # 4. Запускаем сборку данных
+        tab._run_extractor()
+        
+        # Проверяем, что в процессор ушли корректно сформированные данные 
+        mock_processor.process_extraction.assert_called_once_with(
+            "source.pdf",
+            "/output/dir",
+            [("1-3", "first_part"), ("5, 7", "second_part")]
+        )
+    finally:
+        root.destroy()
+
+def test_extractor_tab_empty_pages_ignored():
+    """Проверка, что пустые строки страниц игнорируются при запуске."""
+    root = TkinterDnD.Tk()
+    root.withdraw()
+    
+    try:
+        mock_processor = MagicMock()
+        tab = ExtractorTab(root, mock_processor)
+        
+        tab.ext_source.set("s.pdf")
+        tab.ext_dest.set("d")
+        
+        # Поля страниц оставляем пустыми (default state)
+        tab._run_extractor()
+        
+        # Процессор не должен вызываться, так как конфиги пусты 
+        mock_processor.process_extraction.assert_not_called()
+    finally:
+        root.destroy()
+
+def test_extractor_tab_auto_naming():
+    """Проверка автоматического формирования имен файлов при выборе источника."""
+    root = TkinterDnD.Tk()
+    root.withdraw()
+    try:
+        tab = ExtractorTab(root, MagicMock())
+        # Имитируем выбор файла 
+        tab.ext_source.set("C:/docs/report_2024.pdf")
+        
+        # Проверяем, что имя первого блока обновилось 
+        row_children = tab.block_entries[0].winfo_children()
+        name_entry = row_children[2]
+        assert "report_2024_part_1" in name_entry.get()
+    finally:
+        root.destroy()
+
+def test_extractor_tab_clear_all():
+    """Проверка сброса всех блоков до начального состояния."""
+    root = TkinterDnD.Tk()
+    root.withdraw()
+    try:
+        tab = ExtractorTab(root, MagicMock())
+        tab.add_block_field() # Теперь 2 блока 
+        
+        tab.clear_blocks() # Очистка 
+        
+        # Должен остаться ровно один блок 
+        assert len(tab.block_entries) == 1
+    finally:
+        root.destroy()
+
+# --- ТЕСТЫ ДЛЯ MERGETAB ---
+
+def test_merge_tab_data_collection():
+    """Проверка сбора списка файлов и пути сохранения для объединения."""
+    root = TkinterDnD.Tk()
+    root.withdraw()
+    try:
+        mock_processor = MagicMock()
+        tab = MergeTab(root, mock_processor)
+        
+        # Эмулируем заполнение списка файлов [cite: 80, 81]
+        test_files = ["file1.pdf", "file2.pdf"]
+        for f in test_files:
+            tab.listbox.insert(tk.END, f)
+        
+        tab.merge_out.set("merged_result.pdf")
+        
+        # Запуск
+        tab._run_merge()
+        
+        # Проверяем вызов процессора с корректными аргументами [cite: 84]
+        # Важно: listbox.get возвращает кортеж
+        mock_processor.process_merge.assert_called_once_with(tuple(test_files), "merged_result.pdf")
+    finally:
+        root.destroy()
+
+def test_merge_tab_list_manipulation():
+    """Проверка функций перемещения и удаления в списке[cite: 82, 83]."""
+    root = TkinterDnD.Tk()
+    root.withdraw()
+    try:
+        tab = MergeTab(root, MagicMock())
+        tab.listbox.insert(tk.END, "f1.pdf")
+        tab.listbox.insert(tk.END, "f2.pdf")
+        
+        # Тест перемещения вниз (f1 идет вниз) [cite: 83]
+        tab.listbox.selection_set(0)
+        tab._move_down()
+        assert tab.listbox.get(1) == "f1.pdf"
+        
+        # Тест перемещения вверх (f1 возвращается вверх) [cite: 82]
+        tab.listbox.selection_set(1)
+        tab._move_up()
+        assert tab.listbox.get(0) == "f1.pdf"
+        
+        # [cite_start]Тест удаления [cite: 79]
+        tab.listbox.selection_set(0)
+        tab._remove_from_list()
+        assert tab.listbox.size() == 1
+        assert tab.listbox.get(0) == "f2.pdf"
+    finally:
+        root.destroy()
+
+# --- ТЕСТЫ ДЛЯ EDITORTAB ---
+
+def test_editor_tab_run():
+    """Проверка запуска редактора порядка страниц[cite: 60]."""
+    root = TkinterDnD.Tk()
+    root.withdraw()
+    try:
+        mock_processor = MagicMock()
+        tab = EditorTab(root, mock_processor)
+        
+        tab.ed_source.set("input.pdf")
+        tab.ed_out.set("output.pdf")
+        tab.ed_pages.set("1, 5, 2-4")
+        
+        tab._run_editor()
+        
+        # Проверка передачи всех параметров в процессор [cite: 60]
+        mock_processor.process_editor.assert_called_once_with(
+            "input.pdf", "output.pdf", "1, 5, 2-4"
+        )
+    finally:
+        root.destroy()
+
+def test_editor_tab_reverse():
+    """Проверка запуска функции реверса страниц[cite: 61]."""
+    root = TkinterDnD.Tk()
+    root.withdraw()
+    try:
+        mock_processor = MagicMock()
+        tab = EditorTab(root, mock_processor)
+        
+        tab.ed_source.set("source.pdf")
+        tab.ed_out.set("reversed.pdf")
+        
+        tab._run_reverse()
+        
+        # Проверка вызова специализированного метода процессора [cite: 61]
+        mock_processor.process_reverse.assert_called_once_with(
+            "source.pdf", "reversed.pdf"
+        )
+    finally:
+        root.destroy()
+
+@patch('tkinter.messagebox.showwarning')
+def test_editor_tab_validation(mock_warning):
+    """Проверка валидации пустых путей перед запуском."""
+    root = TkinterDnD.Tk()
+    root.withdraw()
+    try:
+        tab = EditorTab(root, MagicMock())
+        # Не устанавливаем пути
+        tab._run_editor()
+        
+        # Проверяем, что выполнение прервано (процессор не вызван)
+        tab.processor.process_editor.assert_not_called()
+    finally:
+        root.destroy() 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\tests\test_utils.py 
+################################################################################ 
+ 
+import pytest
+import os
+from utils.parser import parse_to_blocks, clean_path
+from core.io_handler import sanitize_filename, get_unique_path
+
+def test_parse_to_blocks_valid():
+    """Проверка корректного парсинга диапазонов и одиночных страниц."""
+    max_p = 10
+    # Обычный список и диапазон
+    assert parse_to_blocks("1, 3-5", max_p) == [[0], [2, 3, 4]] 
+    # Реверсивный диапазон
+    assert parse_to_blocks("5-3", max_p) == [[4, 3, 2]] 
+    # Одиночная страница
+    assert parse_to_blocks("10", max_p) == [[9]] 
+
+def test_parse_to_blocks_invalid():
+    """Проверка обработки некорректного ввода."""
+    assert parse_to_blocks("abc", 10) is None 
+    assert parse_to_blocks("15-20", 10) is None 
+
+def test_sanitize_filename():
+    """Проверка очистки имен файлов от запрещенных символов."""
+    assert sanitize_filename('test/file?*.pdf') == "testfile.pdf" 
+    assert sanitize_filename('   ') == "File_1.pdf" 
+def test_get_unique_path(tmp_path):
+    """Проверка генерации уникального имени при конфликте файлов."""
+    d = tmp_path / "test_dir"
+    d.mkdir()
+    f = d / "doc.pdf"
+    f.write_text("content")
+    
+    # Файл doc.pdf существует, ожидаем doc_1.pdf
+    unique = get_unique_path(str(d), "doc.pdf")
+    assert unique.endswith("doc_1.pdf")
+
+def test_parse_to_blocks_edge_cases():
+    max_p = 10
+    # Дубликаты и лишние пробелы
+    assert parse_to_blocks("1, 1, 2", max_p) == [[0], [0], [1]]
+    # Огромные числа (больше max_pages)
+    assert parse_to_blocks("1, 100", max_p) is None
+    # Отрицательные числа
+    assert parse_to_blocks("-1, 5", max_p) is None
+    # Смешанный невалидный ввод
+    assert parse_to_blocks("1, dog, 3", max_p) is None
+
+def test_parse_to_blocks_complex_input():
+    """Проверка пересекающихся диапазонов и лишних пробелов."""
+    max_p = 10
+    # Пересекающиеся диапазоны: должны обрабатываться как есть (дублирование) [cite: 43]
+    assert parse_to_blocks("1-3, 2-4", max_p) == [[0, 1, 2], [1, 2, 3]] 
+    # Лишние запятые и пробелы [cite: 43, 90]
+    assert parse_to_blocks("1, , 3", max_p) == [[0], [2]]
+    # Страница равна max_pages (граничное значение) [cite: 41]
+    assert parse_to_blocks(str(max_p), max_p) == [[max_p - 1]]
+
+def test_parse_to_blocks_out_of_bounds():
+    """Проверка ввода страницы за пределами документа[cite: 43, 92]."""
+    assert parse_to_blocks("11", 10) is None
+    assert parse_to_blocks("1-15", 10) is None 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\tests\test_validator.py 
+################################################################################ 
+ 
+import pytest
+from core.validator import validate_file_exists
+from utils.constants import ERR_FILE_NOT_FOUND
+
+def test_validate_file_exists_success(tmp_path):
+    f = tmp_path / "exists.pdf"
+    f.write_text("data")
+    assert validate_file_exists(str(f)) is True
+
+def test_validate_file_not_found():
+    with pytest.raises(FileNotFoundError) as exc:
+        validate_file_exists("non_existent_file.pdf")
+    assert ERR_FILE_NOT_FOUND in str(exc.value)
+ 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\ui\base_tab.py 
+################################################################################ 
+ 
+import tkinter as tk
+from tkinter import ttk, filedialog
+from tkinterdnd2 import DND_FILES
+from utils.parser import clean_path
+from utils.messages import get_msg
+
+class BasePdfTab(ttk.Frame):
+    def __init__(self, master, processor):
+        super().__init__(master)
+        self.processor = processor
+
+    def _create_path_row(self, master, label_key, var, mode):
+        """Унифицированный метод создания строки выбора пути (DRY)."""
+        row = tk.Frame(master)
+        row.pack(fill="x", pady=5)
+        
+        tk.Label(row, text=get_msg(label_key), width=15, anchor="w").pack(side=tk.LEFT)
+        ent = tk.Entry(row, textvariable=var)
+        ent.pack(side=tk.LEFT, fill="x", expand=True, padx=5)
+        
+        # Регистрация DND 
+        ent.drop_target_register(DND_FILES)
+        ent.dnd_bind('<<Drop>>', lambda e: var.set(clean_path(e.data)))
+        
+        tk.Button(row, text=get_msg("btn_browse"), 
+                  command=lambda: self._browse(var, mode)).pack(side=tk.RIGHT)
+
+    def _browse(self, var, mode):
+        """Общая логика диалогов выбора[cite: 48]."""
+        if mode == "file":
+            p = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])
+        elif mode == "dir":
+            p = filedialog.askdirectory()
+        elif mode == "save":
+            p = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF", "*.pdf")])
+        
+        if p: var.set(p) 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\ui\editor_tab.py 
+################################################################################ 
+ 
+import tkinter as tk
+from ui.base_tab import BasePdfTab
+from ui.styles import *
+from utils.constants import ERR_ALL_PATHS_REQUIRED
+from utils.messages import get_msg
+
+class EditorTab(BasePdfTab):
+    def __init__(self, master, processor):
+        super().__init__(master, processor)
+        self.ed_source = tk.StringVar()
+        self.ed_pages = tk.StringVar()
+        self.ed_out = tk.StringVar()
+        self._setup_ui()
+
+    def _setup_ui(self):
+        # Выбор исходного файла
+        self._create_path_row(self, "label_source_pdf", self.ed_source, "file")
+        actions_frame = tk.Frame(self)
+        actions_frame.pack(pady=10)        
+        # Поле ввода порядка страниц
+        tk.Label(self, text=get_msg("label_new_order")).pack(padx=TAB_PADDING, pady=(10,0), anchor="w")
+        tk.Entry(self, textvariable=self.ed_pages).pack(fill="x", padx=TAB_PADDING, pady=5)
+        
+        # Результат
+        tk.Label(self, text=get_msg("label_result")).pack(padx=TAB_PADDING, pady=(10,0), anchor="w")
+        self._create_path_row(self, "label_save_as", self.ed_out, "save")
+        
+        # Кнопка запуска
+        tk.Button(self, text=get_msg("btn_editor_run"), bg=COLOR_EDITOR, 
+                  fg="white", font=FONT_BOLD, command=self._run_editor).pack(pady=20)
+        tk.Button(actions_frame, text="РЕВЕРС СТРАНИЦ", bg="#546E7A", 
+                  fg="white", font=FONT_BOLD, command=self._run_reverse).pack(side=tk.LEFT, padx=5)
+
+    def _run_editor(self):
+        if not all([self.ed_source.get(), self.ed_out.get(), self.ed_pages.get()]):
+            return self.processor.app.safe_message("warning", "Внимание", ERR_ALL_PATHS_REQUIRED)
+        
+        self.processor.process_editor(
+            self.ed_source.get(), 
+            self.ed_out.get(), 
+            self.ed_pages.get()
+        )
+    
+    def _run_reverse(self):
+        """Валидация и запуск реверса."""
+        source = self.ed_source.get()
+        out = self.ed_out.get()
+        
+        if not all([source, out]):
+            return self.processor.app.safe_message("warning", "Внимание", ERR_ALL_PATHS_REQUIRED)
+        self.processor.process_reverse(source, out) 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\ui\extractor_tab.py 
+################################################################################ 
+ 
+import os
+import tkinter as tk
+from tkinter import ttk
+from ui.base_tab import BasePdfTab
+from ui.styles import *
+from utils.messages import get_msg
+
+class ExtractorTab(BasePdfTab):
+    def __init__(self, master, processor):
+        super().__init__(master, processor)
+        self.ext_source = tk.StringVar()
+        self.ext_dest = tk.StringVar()
+        self.block_entries = []
+        
+        # Следим за изменением пути, чтобы обновить имена файлов (DRY)
+        self.ext_source.trace_add("write", self._update_block_names)
+        self._setup_ui()
+
+    def _setup_ui(self):
+        # Секция настроек путей
+        top = tk.LabelFrame(self, text=f" {get_msg('label_source_pdf')} ", padx=FRAME_PADDING, pady=FRAME_PADDING)
+        top.pack(fill="x", padx=15, pady=10)
+        
+        self._create_path_row(top, "label_source_pdf", self.ext_source, "file")
+        self._create_path_row(top, "label_save_dir", self.ext_dest, "dir")
+
+        tk.Label(self, text=get_msg("label_block_composition")).pack(anchor="w", padx=TAB_PADDING)
+        
+        # Контейнер для списка блоков со скроллом
+        list_container = tk.Frame(self)
+        list_container.pack(fill="both", expand=True, padx=TAB_PADDING, pady=5)
+
+        self.canvas = tk.Canvas(list_container, highlightthickness=0)
+        sb = ttk.Scrollbar(list_container, orient="vertical", command=self.canvas.yview)
+        self.scrollable_frame = tk.Frame(self.canvas)
+        
+        self.scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        self.canvas.configure(yscrollcommand=sb.set)
+        
+        self.canvas.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
+
+        # Кнопки управления блоками
+        btn_f = tk.Frame(self)
+        btn_f.pack(fill="x", padx=TAB_PADDING, pady=10)
+        
+        tk.Button(btn_f, text=get_msg("btn_add_block"), fg=COLOR_ADD, 
+                  font=FONT_SMALL_BOLD, command=self.add_block_field).pack(side="left")
+        tk.Button(btn_f, text=get_msg("btn_clear_all"), command=self.clear_blocks).pack(side="left", padx=10)
+        
+        tk.Button(self, text=get_msg("btn_extract_run"), bg=COLOR_EXTRACT, 
+                  fg="white", font=FONT_BOLD, command=self._run_extractor).pack(pady=10)
+        
+        self.add_block_field()
+
+    def add_block_field(self):
+        """Добавляет новую строку для ввода страниц и имени файла."""
+        row = tk.Frame(self.scrollable_frame)
+        row.pack(fill="x", pady=2, expand=True)
+        
+        idx = len(self.block_entries) + 1
+        tk.Label(row, text=f"{idx}:", width=3).pack(side="left")
+        
+        ent_pages = tk.Entry(row, width=15)
+        ent_pages.pack(side="left", padx=2)
+        
+        ent_name = tk.Entry(row)
+        ent_name.pack(side="left", fill="x", expand=True, padx=5)
+        
+        # Дефолтное имя
+        base = os.path.basename(self.ext_source.get())
+        prefix = os.path.splitext(base)[0] if base else "Document"
+        ent_name.insert(0, f"{prefix}_part_{idx}")
+        
+        self.block_entries.append(row)
+        self.canvas.yview_moveto(1.0)
+
+    def clear_blocks(self):
+        for r in self.block_entries: r.destroy()
+        self.block_entries = []
+        self.add_block_field()
+
+    def _update_block_names(self, *args):
+        """Обновляет имена файлов в блоках при изменении исходного PDF."""
+        source_path = self.ext_source.get()
+        if not source_path: 
+            return
+
+        base_name = os.path.splitext(os.path.basename(source_path))[0]
+        
+        for i, row in enumerate(self.block_entries):
+            if not row.winfo_exists(): 
+                continue
+            
+            # В каждой строке (row) виджеты упакованы так: [Label, Entry(pages), Entry(name)]
+            children = row.winfo_children()
+            if len(children) >= 3:
+                ent_name = children[2]  # Поле ввода имени файла 
+                current_val = ent_name.get()
+                
+                # Обновляем имя только если оно пустое или содержит старый шаблон "_part_"
+                if not current_val or "_part_" in current_val:
+                    ent_name.delete(0, tk.END)
+                    ent_name.insert(0, f"{base_name}_part_{i+1}")
+    # def _update_block_names(self, *args):
+    #     source_path = self.ext_source.get()
+    #     if not source_path: return
+
+    #     base_name = os.path.splitext(os.path.basename(source_path))[0]
+    #     for i, row in enumerate(self.block_entries):
+    #         _, _, ent_name = self.entry_refs[i] 
+    #         if not ent_name.get() or "_part_" in ent_name.get():
+    #             ent_name.delete(0, tk.END)
+    #             ent_name.insert(0, f"{base_name}_part_{i+1}")
+
+    def _run_extractor(self):
+        """Собирает данные из динамических полей и запускает процесс."""
+        from utils.constants import ERR_PATHS_REQUIRED, ERR_PAGES_REQUIRED
+        
+        source = self.ext_source.get()
+        dest = self.ext_dest.get()
+        
+        # Guard Clauses: Проверка путей
+        if not source or not dest:
+            return self.processor.app.safe_message("warning", "Внимание", ERR_PATHS_REQUIRED)
+        
+        configs = []
+        for row in self.block_entries:
+            if not row.winfo_exists(): continue
+            children = row.winfo_children()
+            if len(children) >= 3:
+                pages = children[1].get().strip()
+                name = children[2].get().strip()
+                if pages:
+                    configs.append((pages, name))
+        
+        # Проверка наличия задач
+        if not configs:
+            return self.processor.app.safe_message("warning", "Внимание", ERR_PAGES_REQUIRED)
+            
+        self.processor.process_extraction(source, dest, configs) 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\ui\merge_tab.py 
+################################################################################ 
+ 
+import tkinter as tk
+from tkinterdnd2 import DND_FILES
+from ui.base_tab import BasePdfTab
+from ui.styles import *
+from utils.parser import clean_path
+from utils.messages import get_msg
+
+class MergeTab(BasePdfTab):
+    def __init__(self, master, processor):
+        super().__init__(master, processor)
+        self.merge_out = tk.StringVar()
+        self._setup_ui()
+
+    def _setup_ui(self):
+        tk.Label(self, text=get_msg("label_file_list")).pack(pady=5, anchor="w", padx=TAB_PADDING)
+        
+        # Список файлов
+        list_frame = tk.Frame(self)
+        list_frame.pack(fill="both", expand=True, padx=TAB_PADDING)
+        
+        self.listbox = tk.Listbox(list_frame, selectmode=tk.EXTENDED)
+        self.listbox.pack(side=tk.LEFT, fill="both", expand=True)
+        self.listbox.drop_target_register(DND_FILES)
+        self.listbox.dnd_bind('<<Drop>>', self._handle_drop)
+        
+        # Кнопки управления
+        btn_frame = tk.Frame(list_frame)
+        btn_frame.pack(side=tk.RIGHT, fill="y", padx=(10, 0))
+        
+        # DRY: Использование словаря для генерации кнопок
+        actions = [
+            ("btn_add_file", self._add_file_manual),
+            ("btn_up", self._move_up),
+            ("btn_down", self._move_down),
+            ("btn_remove", self._remove_from_list),
+            ("btn_clear", self._clear_list)
+        ]
+        for msg_key, cmd in actions:
+            tk.Button(btn_frame, text=get_msg(msg_key), command=cmd).pack(fill="x", pady=2)
+
+        # Путь сохранения
+        self._create_path_row(self, "label_save_as", self.merge_out, "save")
+        
+        tk.Button(self, text=get_msg("btn_merge_run"), bg=COLOR_MERGE, 
+                  fg="white", font=FONT_BOLD, command=self._run_merge).pack(pady=10)
+
+    def _handle_drop(self, event):
+        for f in self.tk.splitlist(event.data):
+            cp = clean_path(f)
+            if cp.lower().endswith('.pdf'): 
+                self.listbox.insert(tk.END, cp) 
+
+    def _add_file_manual(self):
+        """Выбор файла через диалоговое окно."""
+        from tkinter import filedialog
+        files = filedialog.askopenfilenames(filetypes=[("PDF", "*.pdf")])
+        if files:
+            for f in files:
+                self.listbox.insert(tk.END, f)
+
+    def _move_up(self):
+        idx = self.listbox.curselection()
+        if not idx or idx[0] == 0: 
+            return
+        v = self.listbox.get(idx[0])
+        self.listbox.delete(idx[0]) 
+        self.listbox.insert(idx[0]-1, v)
+        self.listbox.selection_set(idx[0]-1)
+
+    def _move_down(self):
+        idx = self.listbox.curselection()
+        if not idx or idx[0] == self.listbox.size()-1: 
+            return
+        v = self.listbox.get(idx[0])
+        self.listbox.delete(idx[0]); self.listbox.insert(idx[0]+1, v)
+        self.listbox.selection_set(idx[0]+1)
+
+    def _remove_from_list(self):
+        selected_indices = self.listbox.curselection()
+        for i in reversed(selected_indices): 
+            self.listbox.delete(i)
+
+    def _clear_list(self): 
+        
+        self.listbox.delete(0, tk.END) 
+
+    def _run_merge(self):
+        files = self.listbox.get(0, tk.END)
+        out = self.merge_out.get()
+        if len(files) < 2 or not out:
+            return self.processor.app.safe_message(
+                "warning", 
+                get_msg("msg_warning_title"), 
+                get_msg("err_merge_required")
+            )
+        self.processor.process_merge(files, out)  
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\ui\styles.py 
+################################################################################ 
+ 
+# Шрифты
+FONT_BOLD = ("Arial", 10, "bold") 
+FONT_SMALL_BOLD = ("Arial", 9, "bold") 
+
+# Отступы (Padding)
+TAB_PADDING = 20 
+FRAME_PADDING = 10 
+
+# Цвета кнопок и элементов
+COLOR_EXTRACT = "#FF9800"  # Оранжевый для экстрактора [cite: 52]
+COLOR_MERGE = "#2196F3"    # Синий для склейки [cite: 52]
+COLOR_EDITOR = "#9C27B0"   # Фиолетовый для редактора [cite: 52]
+COLOR_CLEAR = "red"        # Красный для очистки [cite: 52]
+COLOR_ADD = "green"        # Зеленый для добавления [cite: 52]
+
+# Настройки окна (используются в главном классе)
+# APP_TITLE и APP_GEOMETRY вынесены в constants.py для логического разделения [cite: 52] 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\ui\tkinter_gui.py 
+################################################################################ 
+ 
+import tkinter as tk
+from tkinter import messagebox, ttk
+from ui.styles import *
+from ui.extractor_tab import ExtractorTab
+from ui.merge_tab import MergeTab
+from ui.editor_tab import EditorTab
+from core.processor import PdfProcessor
+from utils.messages import get_msg
+from utils.constants import APP_TITLE, APP_GEOMETRY
+
+class PdfProApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title(APP_TITLE) 
+        self.root.geometry(APP_GEOMETRY) 
+        self.processor = PdfProcessor(self)
+
+        # Виджеты прогресса
+        self.progress = ttk.Progressbar(self.root, orient="horizontal", mode="determinate")
+        self.progress.pack(fill="x", padx=20, pady=10, side=tk.BOTTOM)
+
+        self.notebook = ttk.Notebook(self.root)
+        self.notebook.pack(expand=True, fill="both")
+
+        # SRP: Каждая вкладка — отдельный класс
+        self.tabs = {
+            "extractor": ExtractorTab(self.notebook, self.processor),
+            "merge": MergeTab(self.notebook, self.processor),
+            "editor": EditorTab(self.notebook, self.processor)
+        }
+        
+        for key, tab_obj in self.tabs.items():
+            self.notebook.add(tab_obj, text=get_msg(f"tab_{key}")) 
+
+    def safe_message(self, type_, title, message):
+        """Потокобезопасный вызов сообщений[cite: 22]."""
+        func = getattr(messagebox, f"show{type_}")
+        self.root.after(0, lambda: func(title, message))
+    
+    def update_progress(self, value, maximum=None):
+        """Обновление прогресс-бара."""
+        def _update():
+            if maximum is not None: self.progress["maximum"] = maximum
+            self.progress["value"] = value
+        self.root.after(0, _update)
+ 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\ui\__init__.py 
+################################################################################ 
+ 
+ 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\utils\constants.py 
+################################################################################ 
+ 
+APP_TITLE = "PDF Master Pro"
+APP_GEOMETRY = "700x650"
+
+# Цвета кнопок
+COLOR_EXTRACT = "#FF9800"
+COLOR_MERGE = "#2196F3"
+COLOR_EDITOR = "#9C27B0"
+COLOR_CLEAR = "red"
+COLOR_ADD = "green"
+
+# Сообщения
+MSG_WARNING_TITLE = "Внимание"
+MSG_ERROR_TITLE = "Ошибка"
+MSG_SUCCESS_TITLE = "Готово"
+
+ERR_PATHS_REQUIRED = "Выберите исходный файл и папку сохранения"
+ERR_PAGES_REQUIRED = "Добавьте хотя бы один диапазон страниц"
+ERR_MERGE_REQUIRED = "Добавьте минимум 2 файла и путь сохранения"
+ERR_ALL_PATHS_REQUIRED = "Заполните все пути"
+ERR_FILE_NOT_FOUND = "Файл не найден"
+ERR_ENCRYPTED = "Файл защищен паролем. Сначала снимите защиту." 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\utils\messages.py 
+################################################################################ 
+ 
+MESSAGES = {
+    "ru": {
+        # Общие элементы UI
+        "app_title": "PDF Master Pro",
+        "btn_browse": "Обзор",
+        "btn_add_block": "+ Добавить блок",
+        "btn_clear_all": "Очистить всё",
+        "btn_extract_run": "ИЗВЛЕЧЬ ВСЕ БЛОКИ",
+        "btn_merge_run": "СКЛЕИТЬ",
+        "btn_editor_run": "СОЗДАТЬ PDF",
+        "label_source_pdf": "Исходный PDF:",
+        "label_save_dir": "Папка сохранения:",
+        "label_block_composition": "Состав блоков (каждый блок - отдельный файл):",
+        "label_file_prefix": "Файл",
+        
+        # Вкладки
+        "tab_extractor": "Экстрактор блоков",
+        "tab_merge": "Склеить PDF",
+        "tab_editor": "Порядок страниц",
+        
+        # Склейка и Редактор
+        "label_file_list": "Список файлов:",
+        "btn_add_file": "Добавить файл",
+        "btn_up": "Выше",
+        "btn_down": "Ниже",
+        "btn_remove": "Удалить",
+        "btn_clear": "Очистить",
+        "label_save_as": "Сохранить как:",
+        "label_new_order": "Новый порядок (например, 5, 1-3):",
+        "label_result": "Результат:",
+        
+        # Сообщения об успехе
+        "msg_success_title": "Готово",
+        "msg_merge_success": "Файлы успешно склеены.",
+        "msg_editor_success": "Новый файл успешно создан.",
+        "msg_extract_success": "Создано файлов: {}",
+        
+        # Ошибки и предупреждения
+        "msg_warning_title": "Внимание",
+        "msg_error_title": "Ошибка",
+        "err_paths_required": "Выберите исходный файл и папку сохранения",
+        "err_pages_required": "Добавьте хотя бы один диапазон страниц",
+        "err_merge_required": "Добавьте минимум 2 файла и путь сохранения",
+        "err_all_paths_required": "Заполните все поля",
+        "err_file_not_found": "Файл не найден",
+        "err_encrypted": "Файл зашифрован или защищен паролем.",
+        "err_no_pages_extracted": "Ни одна страница не была извлечена. Проверьте правильность номеров страниц.",
+        "err_page_numbers": "Ошибка в номерах страниц"
+    },
+    "en": {
+        # General UI
+        "app_title": "PDF Master Pro",
+        "btn_browse": "Browse",
+        "btn_add_block": "+ Add Block",
+        "btn_clear_all": "Clear All",
+        "btn_extract_run": "EXTRACT ALL BLOCKS",
+        "btn_merge_run": "MERGE",
+        "btn_editor_run": "CREATE PDF",
+        "label_source_pdf": "Source PDF:",
+        "label_save_dir": "Save Directory:",
+        "label_block_composition": "Block Composition (each block is a separate file):",
+        "label_file_prefix": "File",
+        
+        # Tabs
+        "tab_extractor": "Block Extractor",
+        "tab_merge": "Merge PDF",
+        "tab_editor": "Page Order",
+        
+        # Merge & Editor
+        "label_file_list": "File List:",
+        "btn_add_file": "Add file",
+        "btn_up": "Up",
+        "btn_down": "Down",
+        "btn_remove": "Remove",
+        "btn_clear": "Clear",
+        "label_save_as": "Save As:",
+        "label_new_order": "New Order (e.g., 5, 1-3):",
+        "label_result": "Result:",
+        
+        # Success Messages
+        "msg_success_title": "Done",
+        "msg_merge_success": "Files merged successfully.",
+        "msg_editor_success": "New file created successfully.",
+        "msg_extract_success": "Files created: {}",
+        
+        # Errors & Warnings
+        "msg_warning_title": "Warning",
+        "msg_error_title": "Error",
+        "err_paths_required": "Select source file and save directory",
+        "err_pages_required": "Add at least one page range",
+        "err_merge_required": "Add at least 2 files and a save path",
+        "err_all_paths_required": "Fill in all paths",
+        "err_file_not_found": "File not found",
+        "err_encrypted": "File is encrypted or password protected.",
+        "err_no_pages_extracted": "No pages were extracted. Check page numbers.",
+        "err_page_numbers": "Error in page numbers"
+    }
+}
+
+LANG = "ru"
+
+def get_msg(key, *args):
+    text = MESSAGES[LANG].get(key, key)
+    if args:
+        return text.format(*args)
+    return text 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\utils\parser.py 
+################################################################################ 
+ 
+from pathlib import Path
+
+def clean_path(path):
+    """Очистка пути от артефактов Drag-and-Drop"""
+    return str(Path(path.strip('{}').strip('"')))
+
+def parse_to_blocks(query, max_pages):
+    """Разбор строки с диапазонами страниц (например '1, 3-5', "5-3") в индексы"""
+    blocks = []
+    if not query.strip(): 
+        return None
+    try:
+        for part in query.split(','):
+            part = part.strip()
+            if not part: 
+                continue
+            if '-' in part:
+                # Извлекаем числа: "3-1" -> [3, 1]
+                # Строгое разделение: должно быть ровно две части
+                nums_raw = [x.strip() for x in part.split('-')]
+                if len(nums_raw) != 2 or not all(x.isdigit() for x in nums_raw):
+                    raise ValueError ("Page out of range or not a digit")
+                start, end = int(nums_raw[0]), int(nums_raw[1])
+                if not (1 <= start <= max_pages and 1 <= end <= max_pages):
+                    raise ValueError(f"Out of range: {start}-{end}")                
+                # Если start > end, идем в обратном порядке (step = -1)
+                # Для включения страницы 'end' в range, stop должен быть end - 2 при шаге -1
+                step = 1 if start <= end else -1
+                stop = end if start <= end else end - 2
+                blocks.append(list(range(start - 1, stop, step)))
+            else:
+                if part.isdigit():
+                    idx = int(part) - 1
+                    if 0 <= idx < max_pages: 
+                        blocks.append([idx])
+                    else:
+                        raise ValueError("Page out of range")
+                else:
+                    raise ValueError("Not a digit")
+
+        return blocks if blocks else None
+    except Exception:
+        return None 
+ 
+################################################################################ 
+# FILE: D:\dev\PDFtool\pdf_master_pro\utils\__init__.py 
+################################################################################ 
+ 
+ 
