@@ -29,21 +29,22 @@ def test_extractor_tab_data_collection(root):
     # Блок 1
     row1_children = tab.block_entries[0].winfo_children()
     row1_children[1].insert(0, "1-3") 
-    row1_children[2].delete(0, tk.END)
-    row1_children[2].insert(0, "first_part")
+    row1_children[3].delete(0, tk.END)
+    row1_children[3].insert(0, "first_part")
     
     # Блок 2
     row2_children = tab.block_entries[1].winfo_children()
     row2_children[1].insert(0, "5, 7")
-    row2_children[2].delete(0, tk.END)
-    row2_children[2].insert(0, "second_part")
+    row2_children[2].exclude_var.set(True)
+    row2_children[3].delete(0, tk.END)
+    row2_children[3].insert(0, "second_part")
     
     tab.ext_source.set("source.pdf")
     tab.ext_dest.set("/output/dir")
     tab._run_extractor()
     
     mock_processor.process_extraction.assert_called_once_with(
-        "source.pdf", "/output/dir", [("1-3", "first_part"), ("5, 7", "second_part")]
+        "source.pdf", "/output/dir", [("1-3", "first_part", False), ("5, 7", "second_part", True)]
     )
 
 def test_extractor_tab_empty_pages_ignored(root):
@@ -57,7 +58,7 @@ def test_extractor_tab_empty_pages_ignored(root):
 def test_extractor_tab_auto_naming(root):
     tab = ExtractorTab(root, MagicMock())
     tab.ext_source.set("C:/docs/report_2024.pdf")
-    name_entry = tab.block_entries[0].winfo_children()[2]
+    name_entry = tab.block_entries[0].winfo_children()[3]
     assert "report_2024_part_1" in name_entry.get()
 
 def test_extractor_tab_clear_all(root):
@@ -114,7 +115,7 @@ def test_ui_unique_default_names_for_multiple_blocks(root):
     tab = ExtractorTab(root, MagicMock())
     tab.ext_source.set("document.pdf")
     tab.add_block_field() 
-    name_entry_1 = tab.block_entries[0].winfo_children()[2]
-    name_entry_2 = tab.block_entries[1].winfo_children()[2]
+    name_entry_1 = tab.block_entries[0].winfo_children()[3]
+    name_entry_2 = tab.block_entries[1].winfo_children()[3]
     assert "part_1" in name_entry_1.get()
     assert "part_2" in name_entry_2.get()

@@ -11,8 +11,8 @@ def extract_logic(reader, out_path, query, progress_cb):
         successful_files = 0
 
         # Распаковываем кортеж (конфигурация страниц, желаемое имя)
-        for i, (config_str, custom_name) in enumerate(query):
-            raw_indices = parse_to_blocks(config_str, total_pages)
+        for i, (config_str, custom_name, is_exclude) in enumerate(query):
+            raw_indices = parse_to_blocks(config_str, total_pages, is_exclude)
             if not raw_indices: 
                 continue
             writer = PdfWriter()

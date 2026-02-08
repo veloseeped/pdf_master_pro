@@ -64,7 +64,13 @@ class ExtractorTab(BasePdfTab):
         
         ent_pages = tk.Entry(row, width=15)
         ent_pages.pack(side="left", padx=2)
-        
+
+        # Переключатель режима: False = Извлечь, True = Исключить
+        exclude_var = tk.BooleanVar(value=False)
+        cb = tk.Checkbutton(row, text="Исключить", variable=exclude_var)
+        cb.pack(side="left", padx=5)
+        cb.exclude_var = exclude_var # Сохраняем ссылку в объекте строки
+
         ent_name = tk.Entry(row)
         ent_name.pack(side="left", fill="x", expand=True, padx=5)
         
@@ -97,7 +103,7 @@ class ExtractorTab(BasePdfTab):
             # В каждой строке (row) виджеты упакованы так: [Label, Entry(pages), Entry(name)]
             children = row.winfo_children()
             if len(children) >= 3:
-                ent_name = children[2]  # Поле ввода имени файла 
+                ent_name = children[3]  # Поле ввода имени файла 
                 current_val = ent_name.get()
                 new_default = f"{base_name}_part_{i+1}"
                 # Обновляем имя только если оно пустое или содержит старый шаблон "_part_"
@@ -121,11 +127,12 @@ class ExtractorTab(BasePdfTab):
         for row in self.block_entries:
             if not row.winfo_exists(): continue
             children = row.winfo_children()
-            if len(children) >= 3:
-                pages = children[1].get().strip()
-                name = children[2].get().strip()
-                if pages:
-                    configs.append((pages, name))
+            #  1-Entry(pages), 2-Checkbutton, 3-Entry(name)
+            pages = children[1].get().strip()
+            exclude_mode = children[2].exclude_var.get()
+            name = children[3].get().strip()
+            if pages:
+                configs.append((pages, name, exclude_mode))
         
         # Проверка наличия задач
         if not configs:

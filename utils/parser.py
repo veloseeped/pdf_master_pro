@@ -4,7 +4,7 @@ def clean_path(path):
     """Очистка пути от артефактов Drag-and-Drop"""
     return str(Path(path.strip('{}').strip('"')))
 
-def parse_to_blocks(query, max_pages):
+def parse_to_blocks(query, max_pages, exclude_mode=False):
     """Разбор строки с диапазонами страниц (например '1, 3-5', "5-3") в индексы"""
     blocks = []
     if not query.strip(): 
@@ -37,6 +37,12 @@ def parse_to_blocks(query, max_pages):
                         raise ValueError("Page out of range")
                 else:
                     raise ValueError("Not a digit")
+        final_indices = [p for sublist in blocks for p in sublist]
+        
+        if exclude_mode:
+            all_indices = list(range(max_pages))
+            # Сохраняем только те, которых нет в списке исключения
+            return [[i for i in all_indices if i not in final_indices]]
 
         return blocks if blocks else None
     except Exception:

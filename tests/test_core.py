@@ -9,32 +9,20 @@ def mock_reader():
     reader.pages = [MagicMock() for _ in range(10)]
     return reader
 
-@patch('core.operations.PdfWriter')
-@patch('core.operations.save_pdf')
-def test_extract_logic_calls(mock_save, mock_writer_cls, mock_reader):
-    """Проверка, что логика извлечения вызывает методы записи нужных страниц."""
-    mock_writer = mock_writer_cls.return_value
-    query = [("1-2", "part1.pdf")]
-    
-    extract_logic(mock_reader, "/fake/path", query, lambda x: None)
-    
-    # Проверяем, что добавлены страницы с индексами 0 и 1
-    assert mock_writer.add_page.call_count == 2 
-    mock_save.assert_called_once() 
 
 @patch('core.operations.PdfWriter')
 @patch('core.operations.save_pdf')
-@patch('core.operations.open', create=True)
-def test_merge_logic_calls(mock_open, mock_save, mock_writer_cls):
-    """Проверка корректности объединения нескольких файлов."""
+def test_extract_logic_with_exclude_mode(mock_save, mock_writer_cls, mock_reader):
+    """Проверка логики исключения страниц в ядре[cite: 25, 134]."""
     mock_writer = mock_writer_cls.return_value
-    files = ["f1.pdf", "f2.pdf"]
+    # Тест режима исключения: документ 10 страниц, исключаем 1-8, должны остаться 9 и 10 (индексы 8, 9)
+    query = [("1-8", "excluded.pdf", True)]
     
-    merge_logic(files, "/out/merged.pdf", lambda x: None)
+    extract_logic(mock_reader, "/fake/path", query, lambda x: None)
     
-    # Проверяем, что метод append был вызван для каждого файла
-    assert mock_writer.append.call_count == 2 
-    mock_save.assert_called_once() 
+    # Проверяем, что добавлены именно 2 страницы (9-я и 10-я) [cite: 26]
+    assert mock_writer.add_page.call_count == 2
+    mock_save.assert_called_once()
 
 
 @patch('core.operations.PdfWriter')
@@ -51,7 +39,7 @@ def test_extract_logic_multiple_blocks_path_consistency(mock_get_unique, mock_sa
     
     # Настройка: два блока
     base_dir = "C:/output"
-    query = [("1", "part1"), ("2", "part2")]
+    query = [("1", "part1", False), ("2", "part2", False)]
     
     # Имитируем возврат путей от get_unique_path
     mock_get_unique.side_effect = [
@@ -87,13 +75,14 @@ def test_extract_logic_no_overwrite_error(tmp_path):
     mock_reader = MagicMock()
     mock_reader.pages = [MagicMock()] # Документ из 1 страницы
     
+    # Задача: извлечь 1-ю страницу в файл с именем "Part_1"
+    query = [("1", "Part_1", False)]    
+   
     # Мокаем PdfWriter и сохранение, чтобы не создавать реальные бинарные файлы,
     # но перехватываем путь, который выбрала логика
     with patch('core.operations.PdfWriter'), \
          patch('core.operations.save_pdf') as mock_save:
         
-        # Задача: извлечь 1-ю страницу в файл с именем "Part_1"
-        query = [("1", "Part_1")]
         
         # Выполнение (здесь раньше возникал WinError 183)
         extract_logic(mock_reader, str(out_dir), query, lambda x: None)
@@ -105,3 +94,34 @@ def test_extract_logic_no_overwrite_error(tmp_path):
         assert "Part_1_1.pdf" in called_path
         # Убеждаемся, что оригинальный файл не был затронут
         assert existing_file.read_text() == "original content"
+
+
+@patch('core.operations.PdfWriter')
+@patch('core.operations.save_pdf')
+def test_extract_logic_calls(mock_save, mock_writer_cls, mock_reader):
+    """Обновленный тест обычного извлечения с учетом нового аргумента[cite: 25, 26]."""
+    mock_writer = mock_writer_cls.return_value
+    # Добавлен флаг False для обычного извлечения
+    query = [("1-2", "part1.pdf", False)]
+    
+    extract_logic(mock_reader, "/fake/path", query, lambda x: None)
+    
+    assert mock_writer.add_page.call_count == 2 
+    mock_save.assert_called_once()
+
+@patch('core.operations.PdfWriter')
+@patch('core.operations.save_pdf')
+@patch('core.operations.open', create=True)
+
+def test_merge_logic_calls(mock_open, mock_save, mock_writer_cls):
+    """Проверка корректности объединения нескольких файлов."""
+    mock_writer = mock_writer_cls.return_value
+    files = ["f1.pdf", "f2.pdf"]
+    
+    merge_logic(files, "/out/merged.pdf", lambda x: None)
+    
+    # Проверяем, что метод append был вызван для каждого файла
+    assert mock_writer.append.call_count == 2 
+    mock_save.assert_called_once() 
+
+
