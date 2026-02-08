@@ -29,19 +29,20 @@ def get_unique_path(directory, filename):
     return final_path
 
 
-def get_reader(path):
+def get_reader(stream_or_path):
     """Возвращает PdfReader или выбрасывает ValueError, если файл защищен."""
-    if not path:
+    if not stream_or_path:
         raise ValueError("Путь к файлу не указан")
     try:
-        reader = PdfReader(path, strict=False)
-        if reader.is_encrypted:
-            # Пытаемся открыть с пустым паролем
-            if reader.decrypt("") == 0:
-                raise ValueError(ERR_ENCRYPTED)
-        return reader
+        reader = PdfReader(stream_or_path, strict=False)
     except Exception as e:
-        raise ValueError(f"Ошибка доступа к PDF: {str(e)}")
+        source_name = getattr(stream_or_path, 'name', 'PDF Stream')
+        raise ValueError(f"Ошибка доступа к PDF: {source_name}")
+    if reader.is_encrypted:
+        # Пытаемся открыть с пустым паролем
+        if reader.decrypt("") == 0:
+            raise ValueError(ERR_ENCRYPTED)
+    return reader
 
 
 def save_pdf(writer, clear_output_path):

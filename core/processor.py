@@ -69,7 +69,7 @@ class PdfProcessor:
             with open(s, "rb") as f_stream:
                 reader = get_reader(f_stream)
                 total_pages = len(reader.pages)
-                query = f"{total_pages}-1"
+                query = f"{total_pages}-1" if total_pages > 1 else "1"
                 # Используем существующую логику редактора для применения реверса
                 editor_logic(reader, o, query, lambda v: self.app.update_progress(v, None))
         

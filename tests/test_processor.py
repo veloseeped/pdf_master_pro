@@ -79,4 +79,4 @@ def test_process_reverse_single_page(mock_open, mock_val, mock_logic, mock_reade
     time.sleep(0.1)
 
     # Для одной страницы запрос должен быть "1-1" 
-    mock_logic.assert_called_once_with(ANY, "out.pdf", "1-1", ANY)
+    mock_logic.assert_called_once_with(ANY, "out.pdf", "1", ANY)

@@ -27,7 +27,7 @@ def extract_logic(reader, out_path, query, progress_cb):
             save_pdf(writer, final_path)
             successful_files += 1
             progress_cb(i + 1)
-            writer.close()
+
         
         if successful_files == 0:
             raise ValueError(get_msg("err_no_pages_extracted"))
