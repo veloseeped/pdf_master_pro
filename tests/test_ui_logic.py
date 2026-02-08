@@ -141,6 +141,42 @@ def test_transform_tab_data_collection(root):
         "input.pdf", "output.pdf", "5-10", "rotate", expected_flag
     )
 
+def test_transform_tab_mirror_data_collection(root):
+    """Проверка сбора параметров отражения (горизонтальное и вертикальное)."""
+    from ui.transform_tab import TransformTab
+    mock_processor = MagicMock()
+    tab = TransformTab(root, mock_processor)
+    
+    # Базовые настройки
+    tab.src.set("input.pdf")
+    tab.out.set("output.pdf")
+    tab.pages.set("1-5")
+    tab.action.set("mirror")
+    
+    # 1. Тестируем горизонтальное отражение
+    # Устанавливаем ключ, который видит пользователь
+    target_key_h = "По горизонтали (слева направо)" 
+    tab.mir_val.set(target_key_h)
+    
+    tab._run()
+    
+    # Проверяем, что в процессор ушел флаг "h"
+    mock_processor.process_transform.assert_called_with(
+        "input.pdf", "output.pdf", "1-5", "mirror", "h"
+    )
+    
+    # 2. Тестируем вертикальное отражение
+    mock_processor.process_transform.reset_mock()
+    target_key_v = "По вертикали (сверху вниз)"
+    tab.mir_val.set(target_key_v)
+    
+    tab._run()
+    
+    # Проверяем, что в процессор ушел флаг "v"
+    mock_processor.process_transform.assert_called_with(
+        "input.pdf", "output.pdf", "1-5", "mirror", "v"
+    )
+
 def test_transform_tab_validation(root):
     """Проверка блокировки запуска при пустых полях."""
     from ui.transform_tab import TransformTab
