@@ -1,5 +1,6 @@
+import os
 import pytest
-from core.io_handler import get_reader
+from core.io_handler import get_reader, get_unique_path
 from unittest.mock import MagicMock, patch
 from utils.constants import ERR_ENCRYPTED
 
@@ -35,3 +36,24 @@ def test_get_reader_none_path():
     """Проверка обработки отсутствующего пути[cite: 6]."""
     with pytest.raises(ValueError, match="Путь к файлу не указан"):
         get_reader(None)
+
+
+def test_get_unique_path_collision(tmp_path):
+    """Проверка генерации имен: file.pdf -> file_1.pdf -> file_2.pdf."""
+    directory = str(tmp_path)
+    filename = "report.pdf"
+    
+    # Создаем первый файл
+    full_path_0 = os.path.join(directory, filename)
+    with open(full_path_0, "w") as f: f.write("content")
+    
+    # 1-е столкновение: ожидаем report_1.pdf
+    path_1 = get_unique_path(directory, filename)
+    assert os.path.basename(path_1) == "report_1.pdf"
+    
+    # Создаем второй файл
+    with open(path_1, "w") as f: f.write("content")
+    
+    # 2-е столкновение: ожидаем report_2.pdf
+    path_2 = get_unique_path(directory, filename)
+    assert os.path.basename(path_2) == "report_2.pdf"

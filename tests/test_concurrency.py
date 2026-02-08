@@ -55,31 +55,20 @@ def test_execute_safe_error_handling():
     # Проверяем, что прогресс-бар сброшен в блоке finally 
     mock_app.update_progress.assert_any_call(0)
 
+@pytest.fixture(scope="module")
+def root():
+    _root = TkinterDnD.Tk()
+    _root.withdraw()
+    yield _root
+    _root.destroy()
 
 @patch('tkinter.messagebox.showinfo')
-def test_safe_message_integration(mock_showinfo):
-    """Проверка, что safe_message использует root.after для работы с Tkinter[cite: 77]."""
-    
-    # Используем TkinterDnD.Tk вместо tk.Tk, чтобы избежать TclError 
-    root = TkinterDnD.Tk()
-    root.withdraw() # Скрываем окно 
-    
-    try:
-        # Инициализация приложения теперь пройдет успешно, так как DnD команды доступны 
-        app = PdfProApp(root)
-        
-        # Перехватываем метод after у существующего объекта
-        with patch.object(root, 'after') as mock_after:
-            app.safe_message("info", "Title", "Message")
-            
-            # Убеждаемся, что вызов запланирован через after(0, ...) [cite: 77]
-            mock_after.assert_called_once()
-            
-            # Извлекаем и выполняем лямбду, которую передали в after
-            callback = mock_after.call_args[0][1]
-            callback()
-            
-            # Проверяем финальный вызов окна сообщения
-            mock_showinfo.assert_called_with("Title", "Message")
-    finally:
-        root.destroy() # Обязательная очистка ресурсов
+def test_safe_message_integration(mock_showinfo, root):
+    """Проверка, что safe_message использует root.after для работы с Tkinter."""
+    app = PdfProApp(root)
+    with patch.object(root, 'after') as mock_after:
+        app.safe_message("info", "Title", "Message")
+        mock_after.assert_called_once()
+        callback = mock_after.call_args[0][1]
+        callback()
+        mock_showinfo.assert_called_with("Title", "Message")

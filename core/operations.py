@@ -23,8 +23,8 @@ def extract_logic(reader, out_path, query, progress_cb):
 
             # Очищаем имя от "мусора"
             clean_name = sanitize_filename(custom_name, i)
-            out_path = get_unique_path(out_path, clean_name)
-            save_pdf(writer, out_path)
+            final_path = get_unique_path(out_path, clean_name)
+            save_pdf(writer, final_path)
             successful_files += 1
             progress_cb(i + 1)
             writer.close()

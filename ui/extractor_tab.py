@@ -59,7 +59,7 @@ class ExtractorTab(BasePdfTab):
         row = tk.Frame(self.scrollable_frame)
         row.pack(fill="x", pady=2, expand=True)
         
-        idx = len(self.block_entries) + 1
+        idx = len([r for r in self.block_entries if r.winfo_exists()]) + 1
         tk.Label(row, text=f"{idx}:", width=3).pack(side="left")
         
         ent_pages = tk.Entry(row, width=15)
@@ -69,7 +69,8 @@ class ExtractorTab(BasePdfTab):
         ent_name.pack(side="left", fill="x", expand=True, padx=5)
         
         # Дефолтное имя
-        base = os.path.basename(self.ext_source.get())
+        source_path = self.ext_source.get()
+        base = os.path.basename(source_path) if source_path else ""
         prefix = os.path.splitext(base)[0] if base else "Document"
         ent_name.insert(0, f"{prefix}_part_{idx}")
         
@@ -98,21 +99,12 @@ class ExtractorTab(BasePdfTab):
             if len(children) >= 3:
                 ent_name = children[2]  # Поле ввода имени файла 
                 current_val = ent_name.get()
-                
+                new_default = f"{base_name}_part_{i+1}"
                 # Обновляем имя только если оно пустое или содержит старый шаблон "_part_"
                 if not current_val or "_part_" in current_val:
                     ent_name.delete(0, tk.END)
-                    ent_name.insert(0, f"{base_name}_part_{i+1}")
-    # def _update_block_names(self, *args):
-    #     source_path = self.ext_source.get()
-    #     if not source_path: return
+                    ent_name.insert(0, new_default)
 
-    #     base_name = os.path.splitext(os.path.basename(source_path))[0]
-    #     for i, row in enumerate(self.block_entries):
-    #         _, _, ent_name = self.entry_refs[i] 
-    #         if not ent_name.get() or "_part_" in ent_name.get():
-    #             ent_name.delete(0, tk.END)
-    #             ent_name.insert(0, f"{base_name}_part_{i+1}")
 
     def _run_extractor(self):
         """Собирает данные из динамических полей и запускает процесс."""
