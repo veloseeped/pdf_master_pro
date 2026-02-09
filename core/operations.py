@@ -6,35 +6,31 @@ from utils.parser import parse_to_blocks
 
 
 def extract_logic(reader, out_path, query, progress_cb):
-    try:
-        total_pages = len(reader.pages)
-        successful_files = 0
+    total_pages = len(reader.pages)
+    successful_files = 0
 
-        # Распаковываем кортеж (конфигурация страниц, желаемое имя)
-        for i, (config_str, custom_name, is_exclude) in enumerate(query):
-            raw_indices = parse_to_blocks(config_str, total_pages, is_exclude)
-            if not raw_indices: 
-                continue
-            writer = PdfWriter()
-            final_indices = [p for sublist in raw_indices for p in sublist]
+    # Распаковываем кортеж (конфигурация страниц, желаемое имя)
+    for i, (config_str, custom_name, is_exclude) in enumerate(query):
+        raw_indices = parse_to_blocks(config_str, total_pages, is_exclude)
+        if not raw_indices: 
+            continue
+        writer = PdfWriter()
+        final_indices = [p for sublist in raw_indices for p in sublist]
 
-            for p_idx in final_indices:
-                writer.add_page(reader.pages[p_idx])
+        for p_idx in final_indices:
+            writer.add_page(reader.pages[p_idx])
 
-            # Очищаем имя от "мусора"
-            
-            final_path = get_safe_unique_path(out_path, custom_name)
-            save_pdf(writer, final_path)
-            successful_files += 1
-            progress_cb(i + 1)
-
+        # Очищаем имя от "мусора"
         
-        if successful_files == 0:
-            raise ValueError(get_msg("err_no_pages_extracted"))
-    finally:
-    # Освобождаем дескриптор файла
-        if hasattr(reader, "stream") and reader.stream:
-            reader.stream.close()        
+        final_path = get_safe_unique_path(out_path, custom_name)
+        save_pdf(writer, final_path)
+        successful_files += 1
+        progress_cb(i + 1)
+
+    
+    if successful_files == 0:
+        raise ValueError(get_msg("err_no_pages_extracted"))
+
 
 
 def merge_logic(files, out_path, progress_cb):

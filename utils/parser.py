@@ -25,9 +25,14 @@ def parse_to_blocks(query, max_pages, exclude_mode=False):
                     raise ValueError(f"Out of range: {start}-{end}")                
                 # Если start > end, идем в обратном порядке (step = -1)
                 # Для включения страницы 'end' в range, stop должен быть end - 2 при шаге -1
-                step = 1 if start <= end else -1
-                stop = end if start <= end else end - 2
-                blocks.append(list(range(start - 1, stop, step)))
+                s_idx, e_idx = start - 1, end - 1
+                if s_idx <= e_idx:
+                    blocks.append(list(range(s_idx, e_idx + 1, 1)))
+                else:
+                    blocks.append(list(range(s_idx, e_idx - 1, -1)))
+                # step = 1 if start <= end else -1
+                # stop = end if start <= end else end - 2
+                # blocks.append(list(range(start - 1, stop, step)))
             else:
                 if part.isdigit():
                     idx = int(part) - 1
