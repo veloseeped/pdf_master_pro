@@ -12,8 +12,6 @@ def extract_logic(reader, out_path, query, progress_cb):
     # Распаковываем кортеж (конфигурация страниц, желаемое имя)
     for i, (config_str, custom_name, is_exclude) in enumerate(query):
         raw_indices = parse_to_blocks(config_str, total_pages, is_exclude)
-        if not raw_indices: 
-            continue
         writer = PdfWriter()
         final_indices = [p for sublist in raw_indices for p in sublist]
 
@@ -51,8 +49,6 @@ def editor_logic(reader, out_path, query, progress_cb):
     total_pages = len(reader.pages)
 
     raw_indices = parse_to_blocks(query, total_pages)
-    if not raw_indices:
-        return  
     writer = PdfWriter()
     # Определяем уже указанные пользователем страницы (0-indexed)
     final_indices = [p for block in raw_indices for p in block]
@@ -87,10 +83,7 @@ def rotate_mirror_logic(reader, out_path, query, action_type, value, progress_cb
     value: градусы (90, 180, 270) или направление ('h', 'v')
     """
     total_pages = len(reader.pages)
-    raw_indices = parse_to_blocks(query, total_pages)
-    if not raw_indices:
-        return
-    
+    raw_indices = parse_to_blocks(query, total_pages)    
     target_indices = set(p for sublist in raw_indices for p in sublist)
     writer = PdfWriter()
     

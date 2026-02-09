@@ -13,10 +13,15 @@ def test_parse_to_blocks_valid():
     # Одиночная страница
     assert parse_to_blocks("10", max_p) == [[9]] 
 
+
 def test_parse_to_blocks_invalid():
-    """Проверка обработки некорректного ввода."""
-    assert parse_to_blocks("abc", 10) is None 
-    assert parse_to_blocks("15-20", 10) is None 
+    """Проверка обработки некорректного ввода через исключения."""
+    # Теперь мы ожидаем, что функция выбросит ValueError
+    with pytest.raises(ValueError, match="Not a digit"):
+        parse_to_blocks("abc", 10)
+    
+    with pytest.raises(ValueError, match="Out of range"):
+        parse_to_blocks("15-20", 10)
 
 
 def test_get_safe_unique_path_complex(tmp_path):
@@ -64,14 +69,25 @@ def test_get_safe_unique_path_empty_input(tmp_path):
 
 def test_parse_to_blocks_edge_cases():
     max_p = 10
-    # Дубликаты и лишние пробелы
+    # Дубликаты и лишние пробелы — остаются валидными (дублирование допустимо) [cite: 95]
     assert parse_to_blocks("1, 1, 2", max_p) == [[0], [0], [1]]
-    # Огромные числа (больше max_pages)
-    assert parse_to_blocks("1, 100", max_p) is None
-    # Отрицательные числа
-    assert parse_to_blocks("-1, 5", max_p) is None
-    # Смешанный невалидный ввод
-    assert parse_to_blocks("1, dog, 3", max_p) is None
+    
+    # Огромные числа (больше max_pages) — теперь ожидаем ValueError [cite: 94]
+    with pytest.raises(ValueError):
+        parse_to_blocks("1, 100", max_p)
+    
+    # Отрицательные числа — теперь ожидаем ValueError [cite: 94]
+    with pytest.raises(ValueError):
+        parse_to_blocks("-1, 5", max_p)
+    
+    # Смешанный невалидный ввод (строки вместо цифр) — теперь ожидаем ValueError [cite: 95]
+    with pytest.raises(ValueError):
+        parse_to_blocks("1, dog, 3", max_p)
+
+    # Запрет на исключение всех страниц (exclude_mode)
+    # Если исключить диапазон 1-10 в документе из 10 страниц, должна возникнуть ошибка
+    with pytest.raises(ValueError, match="Нельзя исключить все страницы документа."):
+        parse_to_blocks(f"1-{max_p}", max_p, exclude_mode=True)
 
 def test_parse_to_blocks_complex_input():
     """Проверка пересекающихся диапазонов и лишних пробелов."""
@@ -84,6 +100,9 @@ def test_parse_to_blocks_complex_input():
     assert parse_to_blocks(str(max_p), max_p) == [[max_p - 1]]
 
 def test_parse_to_blocks_out_of_bounds():
-    """Проверка ввода страницы за пределами документа[cite: 43, 92]."""
-    assert parse_to_blocks("11", 10) is None
-    assert parse_to_blocks("1-15", 10) is None
+    """Проверка ввода страницы за пределами документа."""
+    with pytest.raises(ValueError):
+        parse_to_blocks("11", 10)
+    
+    with pytest.raises(ValueError):
+        parse_to_blocks("1-15", 10)
