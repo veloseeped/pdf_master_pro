@@ -1,3 +1,4 @@
+import os
 import tkinter as tk
 from tkinter import messagebox, ttk
 from ui.styles import *
@@ -7,13 +8,15 @@ from ui.editor_tab import EditorTab
 from ui.transform_tab import TransformTab
 from core.processor import PdfProcessor
 from utils.messages import get_msg
-from utils.constants import APP_TITLE, APP_GEOMETRY
+from utils.constants import APP_TITLE, APP_GEOMETRY, DEFAULT_SAVE_DIR
 
 class PdfProApp:
     def __init__(self, root):
         self.root = root
         self.root.title(APP_TITLE) 
         self.root.geometry(APP_GEOMETRY) 
+        self.shared_output_dir = DEFAULT_SAVE_DIR
+        os.makedirs(DEFAULT_SAVE_DIR, exist_ok=True)
         self.processor = PdfProcessor(self)
 
         # Виджеты прогресса

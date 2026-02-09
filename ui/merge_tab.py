@@ -8,8 +8,10 @@ from utils.messages import get_msg
 class MergeTab(BasePdfTab):
     def __init__(self, master, processor):
         super().__init__(master, processor)
-        self.merge_out = tk.StringVar()
+        self.out_dir = self.processor.app.shared_output_dir
+        self.merge_out = tk.StringVar(value=self.out_dir)
         self._setup_ui()
+        
 
     def _setup_ui(self):
         tk.Label(self, text=get_msg("label_file_list")).pack(pady=5, anchor="w", padx=TAB_PADDING)

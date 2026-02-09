@@ -21,11 +21,13 @@ class TransformTab(BasePdfTab):
         }
 
         self.src = tk.StringVar()
-        self.out = tk.StringVar()
+        self.out_dir = self.processor.app.shared_output_dir
+        self.out = tk.StringVar(value=self.out_dir)
         self.pages = tk.StringVar()
         self.action = tk.StringVar(value="rotate")
         self.rot_val = tk.StringVar(value=list(self.ROT_MAP.keys())[0])
         self.mir_val = tk.StringVar(value=list(self.MIR_MAP.keys())[0])
+        
         
         # Добавляем отслеживание изменения выбора
         self.action.trace_add("write", self._update_menu_states)

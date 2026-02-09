@@ -9,7 +9,9 @@ class EditorTab(BasePdfTab):
         super().__init__(master, processor)
         self.ed_source = tk.StringVar()
         self.ed_pages = tk.StringVar()
-        self.ed_out = tk.StringVar()
+        self.out_dir = self.processor.app.shared_output_dir
+        self.ed_out = tk.StringVar(value=self.out_dir)
+        
         self._setup_ui()
 
     def _setup_ui(self):

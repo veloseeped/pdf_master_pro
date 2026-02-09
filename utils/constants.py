@@ -1,5 +1,11 @@
+import os 
+
+
 APP_TITLE = "PDF Master Pro"
 APP_GEOMETRY = "700x650"
+
+# Формируем путь и нормализуем его для корректного отображения слэшей
+DEFAULT_SAVE_DIR = os.path.normpath(os.path.join(os.path.expanduser("~"), "Documents")) + os.sep
 
 # Цвета кнопок
 COLOR_EXTRACT = "#FF9800"
