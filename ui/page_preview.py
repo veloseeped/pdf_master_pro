@@ -16,27 +16,31 @@ class PreviewEngine:
         self.doc = None
         return 0
 
-    def get_page_image(self, page_num, base_width=300):
+    def get_page_image(self, page_num, max_width, max_height):
+        """Возвращает масштабированное изображение страницы."""
         if not self.doc: return None
         page = self.doc.load_page(page_num)
-        pix = page.get_pixmap(matrix=fitz.Matrix(0.6, 0.6))
+        # Используем коэффициент 1.0 для базового качества
+        pix = page.get_pixmap(matrix=fitz.Matrix(1.0, 1.0))
         img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
         
-        w_percent = (base_width / float(img.size[0]))
-        h_size = int((float(img.size[1]) * float(w_percent)))
-        return img.resize((base_width, h_size), Image.Resampling.LANCZOS)
+        # ИСПРАВЛЕНИЕ: Используем thumbnail для вписывания в размеры без обрезки
+        img.thumbnail((max_width, max_height), Image.Resampling.LANCZOS)
+        return img
+
 
 class PagePreviewControl(tk.LabelFrame):
     """Виджет предпросмотра с навигацией."""
     def __init__(self, parent):
-        super().__init__(parent, text=" Предпросмотр ", padx=5, pady=5)
+        super().__init__(parent, text=" Предпросмотр ", padx=5, pady=5, width=350)
+        self.pack_propagate(False)
         self.engine = PreviewEngine()
         self.current_page = 0
         self.tk_image = None
         self._setup_ui()
 
     def _setup_ui(self):
-        self.preview_label = tk.Label(self, text="Нет файла", bg="#eeeeee", height=15)
+        self.preview_label = tk.Label(self, text="Нет файла", bg="#eeeeee", anchor="center")
         self.preview_label.pack(fill="both", expand=True)
         
         nav_frame = tk.Frame(self)
@@ -64,13 +68,23 @@ class PagePreviewControl(tk.LabelFrame):
             self.preview_label.config(image="", text="Файл не найден" if path else "Нет файла")
 
     def show_page(self):
-        img_data = self.engine.get_page_image(self.current_page)
+        self.update_idletasks()
+        available_w = max(self.preview_label.winfo_width() - 10, 100)
+        available_h = max(self.preview_label.winfo_height() - 10, 100)
+        img_data = self.engine.get_page_image(self.current_page, available_w, available_h)
         if img_data:
             self.tk_image = ImageTk.PhotoImage(img_data)
             self.preview_label.config(image=self.tk_image, text="")
             self.ent_page.delete(0, tk.END)
             self.ent_page.insert(0, str(self.current_page + 1))
-
+    
+    def on_resize(self, event):
+        """Перерисовывает страницу при изменении размера окна пользователем."""
+        if self.engine.doc:
+            # Используем after_cancel/after, если нужно убрать "мерцание", 
+            # но для PDF обычно достаточно прямого вызова
+            self.show_page()
+    
     def prev_page(self):
         if self.current_page > 0:
             self.current_page -= 1
