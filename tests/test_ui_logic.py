@@ -4,7 +4,8 @@ from tkinterdnd2 import TkinterDnD
 from ui.extractor_tab import ExtractorTab
 from ui.merge_tab import MergeTab
 from ui.editor_tab import EditorTab
-from unittest.mock import MagicMock, patch, ANY
+from unittest.mock import MagicMock, ANY
+
 
 @pytest.fixture(scope="module")
 def root():

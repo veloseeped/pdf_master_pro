@@ -1,7 +1,7 @@
 import os
-from utils.constants import ERR_FILE_NOT_FOUND
+from utils.messages import get_msg
 
 def validate_file_exists(path):
     if not os.path.exists(path):
-        raise FileNotFoundError(f"{ERR_FILE_NOT_FOUND}: {path}")
+        raise FileNotFoundError(f'{get_msg("err_file_not_found")}: {path}')
     return True

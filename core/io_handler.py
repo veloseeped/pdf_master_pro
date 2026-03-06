@@ -1,7 +1,8 @@
 import os
 import re
 from pypdf import PdfReader
-from utils.constants import ERR_ENCRYPTED
+from utils.messages import get_msg
+
 
 def get_safe_unique_path(directory, filename):
     """
@@ -40,7 +41,7 @@ def get_reader(stream_or_path):
     if reader.is_encrypted:
         # Пытаемся открыть с пустым паролем
         if reader.decrypt("") == 0:
-            raise ValueError(ERR_ENCRYPTED)
+            raise ValueError(get_msg("err_encrypted"))
     return reader
 
 

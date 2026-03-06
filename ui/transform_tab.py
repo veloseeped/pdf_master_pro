@@ -1,7 +1,6 @@
 import tkinter as tk
 from ui.base_tab import BasePdfTab
 from ui.styles import *
-from utils.constants import ERR_ALL_PATHS_REQUIRED
 from utils.messages import get_msg
 
 
@@ -84,7 +83,7 @@ class TransformTab(BasePdfTab):
 
     def _run(self):
         if not all([self.src.get(), self.out.get(), self.pages.get()]):
-            return self.processor.app.safe_message("warning", "Внимание", ERR_ALL_PATHS_REQUIRED)
+            return self.processor.app.safe_message("warning", get_msg("msg_warning_title"), get_msg("err_paths_required"))
         
         # Логика извлечения флага
         if self.action.get() == "rotate":

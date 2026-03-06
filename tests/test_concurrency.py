@@ -1,7 +1,6 @@
 import pytest
 import threading
 import time
-import tkinter as tk
 from tkinterdnd2 import TkinterDnD
 from unittest.mock import MagicMock, patch
 from ui.tkinter_gui import PdfProApp

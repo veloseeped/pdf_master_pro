@@ -12,6 +12,11 @@ MESSAGES = {
         "label_save_dir": "Папка сохранения:",
         "label_block_composition": "Состав блоков (каждый блок - отдельный файл):",
         "label_file_prefix": "Файл",
+        "label_preview":"Предпросмотр",
+        "label_no_file":"Нет файла",
+        "label_file_not_found": "Файл не найден",
+        "btn_left": "<",
+        "btn_right": ">",
         
         # Вкладки
         "tab_extractor": "Извлечь страницы",
@@ -61,6 +66,11 @@ MESSAGES = {
         "label_save_dir": "Save Directory:",
         "label_block_composition": "Block Composition (each block is a separate file):",
         "label_file_prefix": "File",
+        "label_preview":"Preview",
+        "label_no_file":"No file",
+        "label_file_not_found": "File not found",
+        "btn_left": "<",
+        "btn_right": ">",
         
         # Tabs
         "tab_extractor": "Block Extractor",

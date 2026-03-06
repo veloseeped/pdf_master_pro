@@ -1,8 +1,7 @@
-import pytest
 import time
 from unittest.mock import MagicMock, patch, ANY
 from core.processor import PdfProcessor
-from utils.constants import ERR_MERGE_REQUIRED
+
 
 def test_process_merge_validation_error():
     """Проверка, что мерж не запускается, если файлов меньше двух."""

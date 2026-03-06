@@ -2,7 +2,6 @@ from core.validator import validate_file_exists
 from core.operations import extract_logic, merge_logic, editor_logic, rotate_mirror_logic
 from core.task_manager import run_in_thread
 from core.io_handler import get_reader
-from utils.constants import MSG_SUCCESS_TITLE
 from utils.messages import get_msg
 
 class PdfProcessor:
@@ -23,7 +22,7 @@ class PdfProcessor:
                 task_func(*args)
                 
                 # Уведомление об успехе
-                self.app.safe_message("info", MSG_SUCCESS_TITLE, success_msg_key)
+                self.app.safe_message("info", get_msg("msg_success_title"), success_msg_key)
             except Exception as e:
                 self.app.safe_message("error", "Ошибка", str(e))
             finally:

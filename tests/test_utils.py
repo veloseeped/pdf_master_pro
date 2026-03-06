@@ -1,7 +1,6 @@
 import pytest
-import os
-from utils.parser import parse_to_blocks, clean_path
-from core.io_handler import get_safe_unique_path
+from utils.parser import parse_to_blocks
+
 
 def test_parse_to_blocks_valid():
     """Проверка корректного парсинга диапазонов и одиночных страниц."""

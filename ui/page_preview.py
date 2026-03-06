@@ -1,8 +1,10 @@
-import fitz  # PyMuPDF
+import fitz  
 from PIL import Image, ImageTk
 import tkinter as tk
-from tkinter import ttk
 import os
+from ui.styles import *
+from utils.messages import get_msg
+
 
 class PreviewEngine:
     """Логика обработки PDF страниц."""
@@ -32,7 +34,7 @@ class PreviewEngine:
 class PagePreviewControl(tk.LabelFrame):
     """Виджет предпросмотра с навигацией."""
     def __init__(self, parent):
-        super().__init__(parent, text=" Предпросмотр ", padx=5, pady=5, width=350)
+        super().__init__(parent, text=get_msg("label_preview"), padx=5, pady=5, width=350)
         self.pack_propagate(False)
         self.engine = PreviewEngine()
         self.current_page = 0
@@ -40,13 +42,13 @@ class PagePreviewControl(tk.LabelFrame):
         self._setup_ui()
 
     def _setup_ui(self):
-        self.preview_label = tk.Label(self, text="Нет файла", bg="#eeeeee", anchor="center")
+        self.preview_label = tk.Label(self, text=get_msg("label_no_file"), bg=COLOR_BACKGROUND, anchor="center")
         self.preview_label.pack(fill="both", expand=True)
         
         nav_frame = tk.Frame(self)
         nav_frame.pack(fill="x", pady=5)
         
-        tk.Button(nav_frame, text="<", command=self.prev_page).pack(side="left")
+        tk.Button(nav_frame, text=get_msg("btn_left"), command=self.prev_page).pack(side="left")
         
         center = tk.Frame(nav_frame)
         center.pack(side="left", expand=True)
@@ -56,7 +58,7 @@ class PagePreviewControl(tk.LabelFrame):
         self.lbl_total = tk.Label(center, text=" / 0")
         self.lbl_total.pack(side="left")
         
-        tk.Button(nav_frame, text=">", command=self.next_page).pack(side="right")
+        tk.Button(nav_frame, text=get_msg("btn_right"), command=self.next_page).pack(side="right")
 
     def update_preview(self, path):
         total = self.engine.load_document(path)
@@ -65,7 +67,7 @@ class PagePreviewControl(tk.LabelFrame):
         if total > 0:
             self.show_page()
         else:
-            self.preview_label.config(image="", text="Файл не найден" if path else "Нет файла")
+            self.preview_label.config(image="", text=get_msg("label_file_not_found") if path else get_msg("label_no_file"))
 
     def show_page(self):
         self.update_idletasks()
@@ -102,3 +104,4 @@ class PagePreviewControl(tk.LabelFrame):
             if 0 <= idx < len(self.engine.doc):
                 self.current_page = idx
         self.show_page()
+

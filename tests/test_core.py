@@ -1,8 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch, ANY
 from core.operations import editor_logic, extract_logic, merge_logic, rotate_mirror_logic
-from pypdf import PageObject
-from pypdf.constants import PageAttributes as PA
 
 
 @pytest.fixture

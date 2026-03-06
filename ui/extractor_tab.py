@@ -1,8 +1,6 @@
 import os
 import tkinter as tk
 from tkinter import ttk
-import fitz  # PyMuPDF
-from PIL import Image, ImageTk
 from ui.base_tab import BasePdfTab
 from ui.page_preview import PagePreviewControl
 from ui.styles import *
@@ -149,14 +147,12 @@ class ExtractorTab(BasePdfTab):
 
     def _run_extractor(self):
         """Собирает данные из динамических полей и запускает процесс."""
-        from utils.constants import ERR_PATHS_REQUIRED, ERR_PAGES_REQUIRED
-        
         source = self.ext_source.get()
         dest = self.ext_dest.get()
         
         # Guard Clauses: Проверка путей
         if not source or not dest:
-            return self.processor.app.safe_message("warning", "Внимание", ERR_PATHS_REQUIRED)
+            return self.processor.app.safe_message("warning", "Внимание", get_msg("err_paths_required"))
         
         configs = []
         for row in self.block_entries:
@@ -171,6 +167,6 @@ class ExtractorTab(BasePdfTab):
         
         # Проверка наличия задач
         if not configs:
-            return self.processor.app.safe_message("warning", "Внимание", ERR_PAGES_REQUIRED)
+            return self.processor.app.safe_message("warning", "Внимание", get_msg("err_pages_required"))
             
         self.processor.process_extraction(source, dest, configs)

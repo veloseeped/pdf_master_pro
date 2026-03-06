@@ -2,7 +2,7 @@ import os
 import pytest
 from core.io_handler import get_reader, save_pdf, get_safe_unique_path
 from unittest.mock import MagicMock, patch
-from utils.constants import ERR_ENCRYPTED
+from utils.messages import get_msg
 
 @patch('core.io_handler.PdfReader')
 def test_get_reader_encrypted(mock_reader_cls):
@@ -11,7 +11,7 @@ def test_get_reader_encrypted(mock_reader_cls):
     mock_reader.is_encrypted = True
     mock_reader.decrypt.return_value = 0 # 0 значит неудача 
     
-    with pytest.raises(ValueError, match=ERR_ENCRYPTED):
+    with pytest.raises(ValueError, match=get_msg("err_encrypted")):
         get_reader("dummy.pdf")
 
 def test_save_pdf_creates_dir(tmp_path):
