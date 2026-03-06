@@ -1,7 +1,10 @@
 import os
 import tkinter as tk
 from tkinter import ttk
+import fitz  # PyMuPDF
+from PIL import Image, ImageTk
 from ui.base_tab import BasePdfTab
+from ui.page_preview import PagePreviewControl
 from ui.styles import *
 from utils.messages import get_msg
 
@@ -14,6 +17,7 @@ class ExtractorTab(BasePdfTab):
         
         # Следим за изменением пути, чтобы обновить имена файлов (DRY)
         self.ext_source.trace_add("write", self._update_block_names)
+        self.ext_source.trace_add("write", lambda *a: self.preview.update_preview(self.ext_source.get()))
         self._setup_ui()
 
     def _setup_ui(self):
@@ -23,11 +27,21 @@ class ExtractorTab(BasePdfTab):
         
         self._create_path_row(top, "label_source_pdf", self.ext_source, "file")
         self._create_path_row(top, "label_save_dir", self.ext_dest, "dir")
+        
+        # Основной контейнер для разделения на левую (настройки) и правую (превью) части
+        main_container = tk.Frame(self)
+        main_container.pack(fill="both", expand=True, padx=TAB_PADDING, pady=5)
+        
+        # --- ЛЕВАЯ КОЛОНКА (Список блоков) ---
+        left_frame = tk.Frame(main_container)
+        left_frame.pack(side="left", fill="both", expand=True)
 
         tk.Label(self, text=get_msg("label_block_composition")).pack(anchor="w", padx=TAB_PADDING)
+        tk.Label(left_frame, text=get_msg("label_block_composition")).pack(anchor="w")
         
         # --- Шапка таблицы ---
         header_row = tk.Frame(self)
+        header_row = tk.Frame(left_frame)
         header_row.pack(fill="x", padx=TAB_PADDING, pady=(5, 0))
         
         # Отступ под индекс строки (выравнивание с Label "1:") 
@@ -41,6 +55,8 @@ class ExtractorTab(BasePdfTab):
         # Контейнер для списка блоков со скроллом
         list_container = tk.Frame(self)
         list_container.pack(fill="both", expand=True, padx=TAB_PADDING, pady=5)
+        list_container = tk.Frame(left_frame)
+        list_container.pack(fill="both", expand=True, pady=5)
 
         self.canvas = tk.Canvas(list_container, highlightthickness=0)
         sb = ttk.Scrollbar(list_container, orient="vertical", command=self.canvas.yview)
@@ -56,13 +72,20 @@ class ExtractorTab(BasePdfTab):
         # Кнопки управления блоками
         btn_f = tk.Frame(self)
         btn_f.pack(fill="x", padx=TAB_PADDING, pady=10)
+        btn_f = tk.Frame(left_frame)
+        btn_f.pack(fill="x", pady=10)
         
         tk.Button(btn_f, text=get_msg("btn_add_block"), fg=COLOR_ADD, 
                   font=FONT_SMALL_BOLD, command=self.add_block_field).pack(side="left")
         tk.Button(btn_f, text=get_msg("btn_clear_all"), command=self.clear_blocks).pack(side="left", padx=10)
         
-        tk.Button(self, text=get_msg("btn_extract_run"), bg=COLOR_EXTRACT, 
-                  fg="white", font=FONT_BOLD, command=self._run_extractor).pack(pady=10)
+ 
+        tk.Button(left_frame, text=get_msg("btn_extract_run"), bg=COLOR_EXTRACT, 
+                fg="white", font=FONT_BOLD, command=self._run_extractor).pack(pady=10)
+        
+        # --- ПРАВАЯ КОЛОНКА (Превью) ---
+        self.preview = PagePreviewControl(main_container)
+        self.preview.pack(side="right", fill="y", padx=(10, 0))
         
         self.add_block_field()
 
