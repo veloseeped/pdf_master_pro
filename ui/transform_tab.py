@@ -8,16 +8,8 @@ class TransformTab(BasePdfTab):
     def __init__(self, master, processor):
         super().__init__(master, processor)
         
-        self.ROT_MAP = {
-            "90 градусов": "90",
-            "180 градусов": "180",
-            "270 градусов": "270",
-            "Против часовой (-90)": "-90"
-        }
-        self.MIR_MAP = {
-            "По горизонтали (слева направо)": "h",
-            "По вертикали (сверху вниз)": "v"
-        }
+        self.ROT_MAP = get_msg("rotation_options")  # Получаем словарь из сообщений
+        self.MIR_MAP = get_msg("mirror_options")  # Аналогично для отражения
 
         self.src = tk.StringVar()
         self.out_dir = self.processor.app.shared_output_dir

@@ -34,6 +34,16 @@ MESSAGES = {
         "label_save_as": "Сохранить как:",
         "label_new_order": "Новый порядок (например, 5, 1-3):",
         "label_result": "Результат:",
+        "rotation_options": {
+            "90 градусов": "90",
+            "180 градусов": "180",
+            "270 градусов": "270",
+            "Против часовой (-90)": "-90"
+        },
+        "mirror_options": {
+            "По горизонтали (слева направо)": "h",
+            "По вертикали (сверху вниз)": "v"
+        },
         
         # Сообщения об успехе
         "msg_success_title": "Готово",
@@ -88,6 +98,16 @@ MESSAGES = {
         "label_save_as": "Save As:",
         "label_new_order": "New Order (e.g., 5, 1-3):",
         "label_result": "Result:",
+        "rotation_options": {
+            "90 degree": "90",
+            "180 degree": "180",
+            "270 degree": "270",
+            "Counter-clockwise (-90)": "-90"
+        },
+        "mirror_options": {
+            "Horizontal (left to right)": "h",
+            "Vertical (top to bottom)": "v"
+        },
         
         # Success Messages
         "msg_success_title": "Done",
